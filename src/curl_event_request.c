@@ -26,8 +26,8 @@ wrap_from_public(curl_event_request_t *r) {
     return (curl_event_loop_request_t *)((char *)r - offsetof(curl_event_loop_request_t, request));
 }
 
-/* Lightweight xorshift64* RNG for jitter (per-process) */
-static uint64_t rng_state = 88172645463393265ull;
+/* Lightweight xorshift64* RNG for jitter. Thread-local to prevent data races. */
+static _Thread_local uint64_t rng_state = 88172645463393265ull;
 static inline uint64_t xrng64(void) {
     uint64_t x = rng_state;
     x ^= x >> 12; x ^= x << 25; x ^= x >> 27;
@@ -43,10 +43,6 @@ void curl_event_set_ajson_serializer(curl_event_ajson_serialize_fn fn) {
 
 /* Robust trim helpers */
 static inline const char *ltrim(const char *s) { while (*s && isspace((unsigned char)*s)) ++s; return s; }
-static inline void rtrim_inplace(char *s) {
-    size_t n = strlen(s);
-    while (n && isspace((unsigned char)s[n-1])) s[--n] = '\0';
-}
 
 /* Compute jittered backoff (ms) with optional floor/cap and full jitter */
 static uint64_t compute_backoff_ms(int attempt,
@@ -154,11 +150,9 @@ void curl_sink_defaults(curl_event_request_t *req) {
 curl_event_request_t *curl_event_request_init(size_t pool_size) {
     size_t sz = (pool_size == 0) ? 4096 : pool_size;
 
-    /* Request-owned pool */
     aml_pool_t *pool = aml_pool_init(sz);
     if (!pool) return NULL;
 
-    /* Wrapper allocated FROM the pool */
     curl_event_loop_request_t *wrap =
         (curl_event_loop_request_t *)aml_pool_calloc(pool, 1, sizeof(*wrap));
     if (!wrap) {
@@ -166,13 +160,12 @@ curl_event_request_t *curl_event_request_init(size_t pool_size) {
         return NULL;
     }
 
-    /* Initialize defaults */
     curl_event_request_t *req = &wrap->request;
     req->loop                  = NULL;
     req->pool                  = pool;
 
     req->url                   = NULL;
-    req->method                = NULL;   /* inferred later if still NULL */
+    req->method                = NULL;
     req->post_data             = NULL;
     req->headers               = NULL;
 
@@ -212,12 +205,11 @@ curl_event_request_t *curl_event_request_init(size_t pool_size) {
     req->start_time            = 0;
     req->request_start_time    = 0;
 
-    req->priority              = 0;   /* default */
-    req->http3_override        = -1;  /* use loop default */
+    req->priority              = 0;
+    req->http3_override        = -1;
     req->refresh_interval_ms   = 0;
     req->refresh_backoff_on_errors = true;
 
-    /* Private wrapper flags */
     wrap->content_length_found = false;
     wrap->content_length       = -1;
     wrap->is_injected          = false;
@@ -240,8 +232,6 @@ curl_event_request_t *curl_event_request_init(size_t pool_size) {
 
 void curl_event_request_destroy_unsubmitted(curl_event_request_t *req_pub) {
     if (!req_pub) return;
-    curl_event_loop_request_t *wrap = wrap_from_public(req_pub);
-
     if (req_pub->headers) {
         curl_slist_free_all(req_pub->headers);
         req_pub->headers = NULL;
@@ -307,7 +297,6 @@ curl_event_request_build_post_json(const char *url,
         char *json_str = g_ajson_serialize(r->pool, json);
         curl_event_request_body(r, json_str ? json_str : "{}");
     } else {
-        /* Fallback to empty object if serializer not provided */
         curl_event_request_body(r, "{}");
     }
     if(write_cb)
@@ -327,7 +316,6 @@ curl_event_request_submitp(curl_event_loop_t *loop, curl_event_request_t *req)
     return curl_event_request_submit(loop, req, req->priority);
 }
 
-/* Forward decls for internal helpers used by loop */
 static bool setup_curl_handle(curl_event_loop_request_t *req, curl_event_loop_t *loop);
 static size_t write_thunk(void *ptr, size_t size, size_t nmemb, void *sink_data);
 static size_t header_callback(char *buffer, size_t size, size_t nitems, void *sink_data);
@@ -348,7 +336,6 @@ curl_event_request_submit(curl_event_loop_t *loop,
         return NULL;
     }
 
-    /* finalize some inferred defaults here */
     if (!req_pub->method) {
         req_pub->method = aml_pool_strdup(req_pub->pool,
                            (req_pub->post_data ? "POST" : "GET"));
@@ -364,7 +351,6 @@ curl_event_request_submit(curl_event_loop_t *loop,
 
     int pri = (priority != 0) ? priority : req_pub->priority;
     if (pri != 0) {
-        /* higher priority → sooner: subtract seconds in nanoseconds, clamp */
         uint64_t adj = (uint64_t)((int64_t)pri > 0 ? (int64_t)pri : 0) * 1000000000ull;
         if (adj < req_pub->next_retry_at) req_pub->next_retry_at -= adj;
     }
@@ -381,7 +367,6 @@ curl_event_request_submit(curl_event_loop_t *loop,
 
 /* ────────────────────────────────────────────────────────────────────
    Loop-internal helpers required by the scheduler / transport
-   (called from the loop; signatures unchanged)
    ──────────────────────────────────────────────────────────────────── */
 
 void curl_event_loop_request_cleanup(curl_event_loop_request_t *req) {
@@ -402,7 +387,6 @@ void curl_event_loop_request_cleanup(curl_event_loop_request_t *req) {
 void curl_event_request_destroy(curl_event_loop_request_t *req) {
     if (!req) return;
 
-    /* tear down libcurl handles */
     curl_event_loop_request_cleanup(req);
 
     if (req->deps_retained) {
@@ -431,7 +415,6 @@ void curl_event_request_destroy(curl_event_loop_request_t *req) {
     }
 }
 
-/* Enforce max_download_size in body phase; call user write_cb if allowed */
 static size_t write_thunk(void *ptr, size_t size, size_t nmemb, void *sink_data) {
     curl_event_request_t *pub = (curl_event_request_t *)sink_data;
     curl_event_loop_request_t *req = wrap_from_public(pub);
@@ -439,7 +422,6 @@ static size_t write_thunk(void *ptr, size_t size, size_t nmemb, void *sink_data)
 
     if (pub->max_download_size > 0) {
         if ((long)(req->bytes_downloaded + (long)total) > pub->max_download_size) {
-            /* Clamp to boundary to allow partial if desired, then abort */
             size_t allowed = (size_t)((pub->max_download_size - req->bytes_downloaded) > 0
                                       ? (pub->max_download_size - req->bytes_downloaded) : 0);
             if (allowed && pub->write_cb) {
@@ -451,25 +433,17 @@ static size_t write_thunk(void *ptr, size_t size, size_t nmemb, void *sink_data)
     }
 
     req->bytes_downloaded += (long)total;
-    if (!pub->write_cb) return total; /* discard if no cb */
+    if (!pub->write_cb) return total;
     return pub->write_cb(ptr, size, nmemb, pub);
 }
 
-/* Robust header parser for Content-Length with limits */
+/* Zero-copy header parser */
 static size_t header_callback(char *buffer, size_t size, size_t nitems, void *sink_data) {
     size_t total_size = size * nitems;
     curl_event_loop_request_t *req = (curl_event_loop_request_t *)sink_data;
-    char *line = (char *)aml_calloc(1, total_size + 1);
-    if (!line) return total_size;
-    memcpy(line, buffer, total_size);
-    line[total_size] = '\0';
-    rtrim_inplace(line);
 
-    /* Case-insensitive check for "Content-Length:" */
-    const char *p = line;
-    if (strncasecmp(p, "Content-Length", 14) == 0) {
-        p = line + 14;
-        if (*p == ':') ++p;
+    if (total_size > 15 && strncasecmp(buffer, "Content-Length:", 15) == 0) {
+        const char *p = buffer + 15;
         p = ltrim(p);
         long cl = 0;
         for (; *p; ++p) {
@@ -483,16 +457,12 @@ static size_t header_callback(char *buffer, size_t size, size_t nitems, void *si
         if (cl > req->request.max_download_size && req->request.max_download_size > 0) {
             fprintf(stderr, "[curl_event_loop] Content-Length exceeds max_download_size (%ld > %ld)\n",
                     cl, req->request.max_download_size);
-            aml_free(line);
             return 0; /* abort transfer */
         }
     }
-
-    aml_free(line);
     return total_size;
 }
 
-/* Sets up the easy handle based on the public request fields. */
 static bool setup_curl_handle(curl_event_loop_request_t *req, curl_event_loop_t *loop) {
     req->easy_handle          = NULL;
     req->content_length_found = false;
@@ -518,7 +488,6 @@ static bool setup_curl_handle(curl_event_loop_request_t *req, curl_event_loop_t 
         curl_easy_setopt(req->easy_handle, CURLOPT_HEADERDATA, req);
     }
 
-    /* If a JSON root exists and body not set, stringify now */
     if (req->request.json_root && !req->request.post_data) {
         curl_event_request_json_commit(&req->request);
     }
@@ -533,7 +502,6 @@ static bool setup_curl_handle(curl_event_loop_request_t *req, curl_event_loop_t 
     } else if (strcasecmp(method, "PUT") == 0) {
         curl_easy_setopt(req->easy_handle, CURLOPT_UPLOAD, 1L);
         if (req->request.post_data) {
-            /* For simple PUT with known buffer; libcurl will read from memory */
             curl_easy_setopt(req->easy_handle, CURLOPT_POSTFIELDS, req->request.post_data);
         }
     } else if (strcasecmp(method, "DELETE") == 0) {
@@ -543,15 +511,12 @@ static bool setup_curl_handle(curl_event_loop_request_t *req, curl_event_loop_t 
         if (req->request.post_data) {
             curl_easy_setopt(req->easy_handle, CURLOPT_POSTFIELDS, req->request.post_data);
         }
-    } else {
-        /* default GET */
     }
 
     if (req->request.headers) {
         curl_easy_setopt(req->easy_handle, CURLOPT_HTTPHEADER, req->request.headers);
     }
 
-    /* Timeouts / speed limits */
     if (req->request.connect_timeout > 0) {
         curl_easy_setopt(req->easy_handle, CURLOPT_CONNECTTIMEOUT, req->request.connect_timeout);
     }
@@ -565,7 +530,6 @@ static bool setup_curl_handle(curl_event_loop_request_t *req, curl_event_loop_t 
         curl_easy_setopt(req->easy_handle, CURLOPT_LOW_SPEED_TIME, req->request.low_speed_time);
     }
 
-    /* HTTP/3 selection: loop default unless overridden per request */
     bool use_http3 = loop->enable_http3;
     if (req->request.http3_override == 0) use_http3 = false;
     if (req->request.http3_override == 1) use_http3 = true;
@@ -573,15 +537,10 @@ static bool setup_curl_handle(curl_event_loop_request_t *req, curl_event_loop_t 
         curl_easy_setopt(req->easy_handle, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_3);
     }
 
-    /* Write thunk that enforces max_download_size then calls user cb */
     curl_easy_setopt(req->easy_handle, CURLOPT_WRITEFUNCTION, write_thunk);
     curl_easy_setopt(req->easy_handle, CURLOPT_WRITEDATA, &req->request);
-
-    /* Back-pointer */
     curl_easy_setopt(req->easy_handle, CURLOPT_PRIVATE, req);
 
-    /* Shared handle (DNS cache) */
-    curl_easy_setopt(req->easy_handle, CURLOPT_SHARE, loop->shared_handle);
     return true;
 }
 
@@ -599,7 +558,6 @@ bool curl_event_loop_request_start(curl_event_loop_request_t *req) {
     }
 
     if (!setup_curl_handle(req, loop)) {
-        /* irrecoverable at this point; destroy request */
         curl_event_request_destroy(req);
         return false;
     }
@@ -624,13 +582,10 @@ void curl_event_request_apply_browser_profile(curl_event_request_t *r,
 
     const char *al = al_opt ? al_opt : "en-US,en;q=0.9";
 
-    // Safe to set unconditionally — caller can still override later with set_header()
     curl_event_request_set_header(r, "User-Agent", ua);
     curl_event_request_set_header(r, "Accept",
         "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
     curl_event_request_set_header(r, "Accept-Language", al);
-    // Do NOT set Sec-Fetch-* or Connection: keep-alive; those are browser/TCP-state specific.
-    // Accept-Encoding is already covered by CURLOPT_ACCEPT_ENCODING "".
 }
 
 void curl_event_request_depend(curl_event_request_t *req, curl_event_res_id id) {
@@ -640,7 +595,6 @@ void curl_event_request_depend(curl_event_request_t *req, curl_event_res_id id) 
     node->next = (curl_res_dep_t *)req->dep_head;
     req->dep_head = (struct curl_res_dep_s *)node;
 }
-
 
 void curl_event_request_depend_many(curl_event_request_t *req,
                                     const curl_event_res_id *ids, int n) {
@@ -676,7 +630,7 @@ long curl_event_request_content_length(curl_event_request_t *r) {
 }
 
 /* ────────────────────────────────────────────────────────────────────
-   Mutators (mostly thin setters using the request pool)
+   Mutators
    ──────────────────────────────────────────────────────────────────── */
 
 void curl_event_request_url(curl_event_request_t *req, const char *url) {
@@ -711,7 +665,6 @@ void curl_event_request_json_bodyf(curl_event_request_t *req, const char *fmt, .
     if (!req->method) req->method = aml_pool_strdup(req->pool, "POST");
 }
 
-/* Headers */
 static void add_header_line(struct curl_slist **list, const char *name, const char *value) {
     size_t n = strlen(name) + 2 + strlen(value) + 1;
     char *line = (char *)aml_calloc(1, n);
@@ -724,7 +677,7 @@ void curl_event_request_add_header(curl_event_request_t *req,
     add_header_line(&req->headers, name, value);
 }
 void curl_event_request_add_headerf(curl_event_request_t *req,
-                                    const char *name, const char *fmt, ...) {
+                                     const char *name, const char *fmt, ...) {
     va_list ap; va_start(ap, fmt);
     char *val = aml_pool_strdupvf(req->pool, fmt, ap);
     va_end(ap);
@@ -754,21 +707,19 @@ void curl_event_request_set_header(curl_event_request_t *req,
     req->headers = new_list;
 }
 void curl_event_request_set_headerf(curl_event_request_t *req,
-                                    const char *name, const char *fmt, ...) {
+                                     const char *name, const char *fmt, ...) {
     va_list ap; va_start(ap, fmt);
     char *val = aml_pool_strdupvf(req->pool, fmt, ap);
     va_end(ap);
     curl_event_request_set_header(req, name, val);
 }
 
-/* Rate limiting */
 void curl_event_request_rate_limit(curl_event_request_t *req,
                                    const char *key, bool high_priority) {
     req->rate_limit = aml_pool_strdup(req->pool, key);
     req->rate_limit_high_priority = high_priority;
 }
 
-/* Timeouts / speed */
 void curl_event_request_connect_timeout(curl_event_request_t *req, long secs) {
     req->connect_timeout = secs;
 }
@@ -781,7 +732,6 @@ void curl_event_request_low_speed(curl_event_request_t *req,
     req->low_speed_time  = time_secs;
 }
 
-/* Retry policy (simple) */
 void curl_event_request_max_retries(curl_event_request_t *req, int max_retries) {
     req->max_retries = max_retries;
 }
@@ -789,7 +739,6 @@ void curl_event_request_backoff_factor(curl_event_request_t *req, double factor)
     req->backoff_factor = factor;
 }
 
-/* Retry policy (enhanced) */
 void curl_event_request_enable_retries(curl_event_request_t *req,
                                        int max_retries,
                                        double backoff_factor,
@@ -805,7 +754,6 @@ void curl_event_request_enable_retries(curl_event_request_t *req,
     if (!req->on_retry) req->on_retry = default_calculate_retry_enhanced;
 }
 
-/* Refresh */
 void curl_event_request_enable_refresh(curl_event_request_t *req,
                                        uint64_t interval_ms,
                                        bool backoff_on_errors)
@@ -815,7 +763,6 @@ void curl_event_request_enable_refresh(curl_event_request_t *req,
     req->refresh_backoff_on_errors = backoff_on_errors;
 }
 
-/* Callbacks */
 void curl_event_request_on_complete(curl_event_request_t *req,
                                     curl_event_on_complete_t cb) {
     req->on_complete = cb;
@@ -837,7 +784,6 @@ void curl_event_request_on_prepare(curl_event_request_t *req,
     req->on_prepare = cb;
 }
 
-/* sink_data */
 void curl_event_request_sink(curl_event_request_t *req,
                                curl_sink_interface_t *sink_iface,
                                curl_event_cleanup_data_t cleanup) {
@@ -847,7 +793,6 @@ void curl_event_request_sink(curl_event_request_t *req,
         req->sink_data_cleanup = cleanup;
 }
 
-/* plugin_data */
 void curl_event_request_plugin_data(curl_event_request_t *req,
                                     void *plugin_data,
                                     curl_event_cleanup_data_t cleanup) {
@@ -855,8 +800,6 @@ void curl_event_request_plugin_data(curl_event_request_t *req,
     req->plugin_data_cleanup = cleanup;
 }
 
-
-/* Misc */
 void curl_event_request_should_refresh(curl_event_request_t *req) {
     req->should_refresh = true;
 }
@@ -864,7 +807,6 @@ void curl_event_request_max_download_size(curl_event_request_t *req, long bytes)
     req->max_download_size = bytes;
 }
 
-/* New ergonomics */
 void curl_event_request_priority(curl_event_request_t *req, int priority) {
     req->priority = priority;
 }
@@ -891,7 +833,6 @@ void curl_event_request_json_autocontenttype(curl_event_request_t *req, bool ena
     req->json_set_ct = enable;
 }
 
-/* Stringify JSON into post_data if post_data is not already set. */
 void curl_event_request_json_commit(curl_event_request_t *req) {
     if (!req || !req->json_root || req->post_data) return;
     const char *s = ajson_stringify(req->pool, req->json_root);

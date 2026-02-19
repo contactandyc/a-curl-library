@@ -26,23 +26,13 @@ curl_event_loop_t *curl_event_loop_init(curl_event_on_loop_t on_loop, void *arg)
     loop->inactive_requests = NULL;
     loop->refresh_requests = NULL;
     loop->resources = NULL;
+
     loop->multi_handle = curl_multi_init();
     if (!loop->multi_handle) {
         fprintf(stderr, "[curl_event_loop_init] Failed to create multi_handle.\n");
         aml_free(loop);
         return NULL;
     }
-
-    loop->shared_handle = curl_share_init();
-    if (!loop->shared_handle) {
-        fprintf(stderr, "[curl_event_loop_init] Failed to create shared_handle.\n");
-        curl_multi_cleanup(loop->multi_handle);
-        aml_free(loop);
-        return NULL;
-    }
-
-    // Example: share DNS cache
-    curl_share_setopt(loop->shared_handle, CURLSHOPT_SHARE, CURL_LOCK_DATA_DNS);
 
     // The user can toggle HTTP/3 support if their libcurl has it
     loop->enable_http3 = true;
@@ -66,7 +56,7 @@ curl_event_loop_t *curl_event_loop_init(curl_event_on_loop_t on_loop, void *arg)
     loop->metrics.failed_requests = 0;
     loop->metrics.retried_requests = 0;
 
-    // Let’s default to a high concurrency.
+    // Default to a high concurrency.
     loop->max_concurrent_requests = 1000;
 
     loop->keep_running = true;
@@ -86,13 +76,12 @@ void curl_event_loop_inject(curl_event_loop_t *loop, curl_event_request_t *req_p
         return;
     }
 
-    // Initialize the injected request (copy the public fields)
     injected_req->request = *req_pub;
     injected_req->is_injected = true;
-    injected_req->request.loop = loop; // Ensure the loop reference is correct
+    injected_req->request.loop = loop;
     injected_req->request.current_retries = 0;
 
-    injected_req->easy_handle = NULL; // No actual cURL handle
+    injected_req->easy_handle = NULL;
     injected_req->multi_handle = NULL;
 
     pthread_mutex_lock(&loop->mutex);
@@ -124,8 +113,6 @@ bool curl_event_loop_cancel(curl_event_loop_t *loop, curl_event_request_t *r) {
 
 void curl_event_loop_destroy(curl_event_loop_t *loop) {
     if (!loop) return;
-
-    // First, clean up requests stored in macro_map_t-based containers
 
     macro_map_t *n = macro_map_first(loop->queued_requests);
     while (n) {
@@ -159,10 +146,8 @@ void curl_event_loop_destroy(curl_event_loop_t *loop) {
         n = macro_map_first(loop->rate_limited_requests);
     }
 
-    // Now, clean up requests stored in linked lists
     pthread_mutex_lock(&loop->mutex);
 
-    // Cancelled requests
     curl_event_loop_request_t *req = loop->cancelled_requests;
     while (req) {
         curl_event_loop_request_t *next = req->next_cancelled;
@@ -171,7 +156,6 @@ void curl_event_loop_destroy(curl_event_loop_t *loop) {
     }
     loop->cancelled_requests = NULL;
 
-    // Pending requests (waiting on dependencies)
     req = loop->pending_requests;
     while (req) {
         curl_event_loop_request_t *next = req->next_pending;
@@ -180,7 +164,6 @@ void curl_event_loop_destroy(curl_event_loop_t *loop) {
     }
     loop->pending_requests = NULL;
 
-    // Injected requests
     req = loop->injected_requests;
     while (req) {
         curl_event_loop_request_t *next = req->next_pending;
@@ -191,9 +174,7 @@ void curl_event_loop_destroy(curl_event_loop_t *loop) {
 
     pthread_mutex_unlock(&loop->mutex);
 
-    // Clean up libcurl handles and the mutex
     curl_multi_cleanup(loop->multi_handle);
-    curl_share_cleanup(loop->shared_handle);
     pthread_mutex_destroy(&loop->mutex);
 
     curl_resource_destroy_all(loop);
@@ -208,7 +189,6 @@ static bool request_is_rate_limited(curl_event_loop_t *loop, macro_map_t **root,
         return false;
 
     macro_map_erase(root, &req->node);
-    // insert into a rate limited queue with time as key
     req->request.next_retry_at = macro_now() + next;
     curl_event_request_insert(&loop->rate_limited_requests, req);
     return true;
@@ -218,13 +198,9 @@ static bool request_waiting_on_dependencies(curl_event_loop_t *loop,
                                             curl_event_loop_request_t *req)
 {
     if (!req->request.dep_head) return false;
-    /* returns true if we blocked the request on some unmet resource */
     return curl_resource_check_and_block_list(loop, req, req->request.dep_head);
 }
 
-/**
- * Check if a request is ready to be retried or become active.
- */
 static bool request_ready(curl_event_loop_t *loop, const curl_event_loop_request_t *req) {
     if (loop->num_queued_requests >= loop->max_concurrent_requests) {
         return false;
@@ -239,8 +215,6 @@ static bool request_ready(curl_event_loop_t *loop, const curl_event_loop_request
             return false;
         }
     }
-
-    // Check if the current time is greater than or equal to the retry time
     return macro_now() >= req->request.next_retry_at;
 }
 
@@ -257,10 +231,10 @@ static void enqueue_request(curl_event_loop_t *loop, curl_event_loop_request_t *
 void process_cancelled_and_pending_requests(curl_event_loop_t *loop) {
     pthread_mutex_lock(&loop->mutex);
     curl_event_loop_request_t *cancelled = loop->cancelled_requests;
-    loop->cancelled_requests = NULL; // Reset the list for new cancellations
+    loop->cancelled_requests = NULL;
 
     curl_event_loop_request_t *pending = loop->pending_requests;
-    loop->pending_requests = NULL; // Reset the list for new additions
+    loop->pending_requests = NULL;
     pthread_mutex_unlock(&loop->mutex);
 
     while (cancelled) {
@@ -289,9 +263,6 @@ void process_cancelled_and_pending_requests(curl_event_loop_t *loop) {
         if (pending->is_cancelled) {
             curl_event_request_destroy(pending);
         } else {
-            /* Retain all resource deps the FIRST time the loop thread
-               touches this request. This pins resources until the request
-               is destroyed (or released explicitly). */
             if (!pending->deps_retained && pending->request.dep_head) {
                 curl_resource_retain_request_deps(loop, &pending->request);
                 pending->deps_retained = true;
@@ -312,7 +283,6 @@ void process_cancelled_and_pending_requests(curl_event_loop_t *loop) {
 static long calculate_next_timer_expiry(curl_event_loop_t *loop, long max_value) {
     uint64_t current_time, next_time;
 
-    // Get the first request from the inactive map (sorted by `next_retry_at`)
     macro_map_t *first_inactive_node = macro_map_first(loop->inactive_requests);
     macro_map_t *first_refresh_node = macro_map_first(loop->refresh_requests);
     if (!first_inactive_node && !first_refresh_node) {
@@ -340,7 +310,7 @@ static long calculate_next_timer_expiry(curl_event_loop_t *loop, long max_value)
         return 0;
     }
     next_time = next_time - current_time;
-    next_time /= 1000000L; // Convert to milliseconds
+    next_time /= 1000000L;
     return next_time > max_value ? max_value : next_time;
 }
 
@@ -415,7 +385,6 @@ static void process_completed_requests(curl_event_loop_t *loop) {
             curl_easy_getinfo(easy, CURLINFO_RESPONSE_CODE, &http_code);
             CURLcode result = msg->data.result;
 
-            // Remove handle from multi
             macro_map_erase(&loop->queued_requests, (macro_map_t *)req);
             loop->num_queued_requests--;
 
@@ -429,7 +398,6 @@ static void process_completed_requests(curl_event_loop_t *loop) {
                     retry_in = req->request.on_failure(easy, result, http_code, &req->request);
             }
 
-            // Handle 429: Too Many Requests
             if (http_code == 429 && req->request.rate_limit) {
                 retry_in = rate_manager_handle_429(req->request.rate_limit);
                 req->request.next_retry_at = macro_now_add_seconds(retry_in);
@@ -443,7 +411,7 @@ static void process_completed_requests(curl_event_loop_t *loop) {
 
             if (retry_in > 0) {
                 req->request.next_retry_at = macro_now_add_seconds(retry_in);
-                curl_event_loop_request_cleanup(req);  // these don't count towards retries
+                curl_event_loop_request_cleanup(req);
                 enqueue_request(loop, req);
             } else if (retry_in < 0 && req->request.on_retry(&req->request)) {
                 curl_event_loop_request_cleanup(req);
@@ -452,7 +420,6 @@ static void process_completed_requests(curl_event_loop_t *loop) {
             } else {
                 if (success)
                     loop->metrics.completed_requests++;
-                // Clean up resources
                 if (req->request.should_refresh) {
                     req->request.current_retries = 0;
                     curl_event_loop_request_cleanup(req);
@@ -466,59 +433,42 @@ static void process_completed_requests(curl_event_loop_t *loop) {
 
     pthread_mutex_lock(&loop->mutex);
     curl_event_loop_request_t *injected = loop->injected_requests;
-    loop->injected_requests = NULL; // Reset the injected queue
+    loop->injected_requests = NULL;
     pthread_mutex_unlock(&loop->mutex);
 
     while (injected) {
         curl_event_loop_request_t *next = injected->next_pending;
-
         if (injected->request.on_complete) {
             injected->request.on_complete(NULL, &injected->request);
         }
-
         curl_event_request_destroy(injected);
         injected = next;
     }
 }
 
-/**
- * Run the event loop.
- * A simple approach that calls curl_multi_wait + curl_multi_perform in a loop.
- * More advanced usage would integrate with epoll, libuv, etc.
- */
 void curl_event_loop_run(curl_event_loop_t *loop) {
     if (!loop) return;
 
     loop->keep_running = true;
 
     while (loop->keep_running) {
-        /* Apply cross-thread resource ops before scheduling anything */
         curl_resource_set_owner_thread(loop);
 
-        // Allow user-defined loop logic (e.g., dynamically enqueue requests)
         if (loop->on_loop && !loop->on_loop(loop, loop->on_loop_arg)) {
             break;
         }
 
-        // Process pending and cancelled requests
         process_cancelled_and_pending_requests(loop);
-
-        // Move ready requests from inactive to active queue
         move_inactive_requests_to_queue(loop);
 
-        // Check if we have active requests in the multi_handle
         int still_running = 0;
         if (loop->num_queued_requests > 0) {
             curl_multi_perform(loop->multi_handle, &still_running);
         }
 
-        // Handle completed requests
         process_completed_requests(loop);
-
-        /* Drain again in case completions posted resource ops (cheap no-op if empty) */
         curl_resource_inbox_drain(loop);
 
-        // Check if we should exit: no running transfers, no pending requests
         if (still_running == 0 &&
             loop->pending_requests == NULL &&
             macro_map_first(loop->queued_requests) == NULL &&
@@ -527,10 +477,14 @@ void curl_event_loop_run(curl_event_loop_t *loop) {
             break;
         }
 
-        // Calculate next wait time
+        // Combine custom timers with libcurl's required timers
         long wait_timeout_ms = calculate_next_timer_expiry(loop, 200);
+        long curl_timeout = -1;
+        curl_multi_timeout(loop->multi_handle, &curl_timeout);
+        if (curl_timeout >= 0 && curl_timeout < wait_timeout_ms) {
+            wait_timeout_ms = curl_timeout;
+        }
 
-        // Wait for I/O readiness or timeout
         if (loop->num_multi_requests > 0) {
             int num_fds = 0;
             CURLMcode mc = curl_multi_poll(loop->multi_handle, NULL, 0, wait_timeout_ms, &num_fds);
@@ -538,7 +492,7 @@ void curl_event_loop_run(curl_event_loop_t *loop) {
                 fprintf(stderr, "curl_multi_poll() failed: %s\n", curl_multi_strerror(mc));
             }
         } else if (wait_timeout_ms > 0) {
-            usleep(wait_timeout_ms * 1000); // Sleep when idle to prevent CPU spinning
+            usleep(wait_timeout_ms * 1000);
         }
     }
 }
@@ -556,7 +510,6 @@ curl_event_metrics_t curl_event_loop_get_metrics(const curl_event_loop_t *loop) 
     return loop->metrics;
 }
 
-/* New: submit a prebuilt, pooled request without copying */
 bool curl_event_loop_submit(curl_event_loop_t *loop,
                             curl_event_request_t *req_pub,
                             int priority)

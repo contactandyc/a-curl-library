@@ -58,8 +58,6 @@ void rate_manager_init(void) {
     g_rate_manager = (rate_manager_t *)aml_calloc(1, sizeof(rate_manager_t));
     pthread_mutex_init(&g_rate_manager->mutex, NULL);
     g_rate_manager->limits = NULL;
-
-    atexit(rate_manager_destroy);
 }
 
 void rate_manager_set_limit(const char *key, int max_concurrent, double max_rps) {
