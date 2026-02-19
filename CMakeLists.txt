@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2025 Andy Curtis <contactandyc@gmail.com>
+# SPDX-FileCopyrightText: 2026 Andy Curtis <contactandyc@gmail.com>
 # SPDX-FileCopyrightText: 2024–2025 Knode.ai — technical questions: contact Andy (above)
 # SPDX-License-Identifier: Apache-2.0
 
@@ -44,9 +44,11 @@ endif()
 
 include(GNUInstallDirs)
 
-# ---- Dependencies ----
+# ---- Dependencies (Standard CMake) ----
 find_package(a_json_library CONFIG REQUIRED)
 find_package(CURL REQUIRED)
+
+# ---- Dependencies (PkgConfig Shims) ----
 
 # ── Library variants (ALL are defined & built/installed) ──────────────────────
 add_library(a_curl_library_debug  src/curl_event_loop.c  src/curl_event_request.c  src/curl_resource.c  src/rate_manager.c  src/sinks/file.c  src/sinks/memory.c  src/worker_pool.c)

@@ -26,7 +26,7 @@ sudo cmake --install .
 ### System packages (required)
 
 ```bash
-sudo apt-get update && sudo apt-get install -y zlib1g-dev build-essential libcurl4-openssl-dev libssl-dev
+sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev libssl-dev zlib1g-dev build-essential
 ```
 
 
@@ -46,6 +46,7 @@ Clone & build:
 ```bash
 git clone --depth 1 "https://github.com/contactandyc/a-memory-library.git" "a-memory-library"
 cd a-memory-library
+./build.sh clean
 ./build.sh install
 cd ..
 rm -rf a-memory-library
@@ -68,9 +69,24 @@ Clone & build:
 ```bash
 git clone --depth 1 "https://github.com/contactandyc/the-macro-library.git" "the-macro-library"
 cd the-macro-library
+./build.sh clean
 ./build.sh install
 cd ..
 rm -rf the-macro-library
+```
+
+
+### a-json-sax-library
+
+Clone & build:
+
+```bash
+git clone --depth 1 "https://github.com/contactandyc/a-json-sax-library.git" "a-json-sax-library"
+cd a-json-sax-library
+./build.sh clean
+./build.sh install
+cd ..
+rm -rf a-json-sax-library
 ```
 
 
@@ -81,6 +97,7 @@ Clone & build:
 ```bash
 git clone --depth 1 "https://github.com/contactandyc/a-json-library.git" "a-json-library"
 cd a-json-library
+./build.sh clean
 ./build.sh install
 cd ..
 rm -rf a-json-library
@@ -184,6 +201,7 @@ ENV PATH="/opt/venv/bin:${PATH}"
 RUN set -eux; \
   git clone --depth 1 "https://github.com/contactandyc/a-memory-library.git" "a-memory-library" && \
   cd a-memory-library && \
+  ./build.sh clean && \
   ./build.sh install && \
   cd .. && \
   rm -rf a-memory-library
@@ -192,14 +210,25 @@ RUN set -eux; \
 RUN set -eux; \
   git clone --depth 1 "https://github.com/contactandyc/the-macro-library.git" "the-macro-library" && \
   cd the-macro-library && \
+  ./build.sh clean && \
   ./build.sh install && \
   cd .. && \
   rm -rf the-macro-library
+
+# --- Build & install a-json-sax-library ---
+RUN set -eux; \
+  git clone --depth 1 "https://github.com/contactandyc/a-json-sax-library.git" "a-json-sax-library" && \
+  cd a-json-sax-library && \
+  ./build.sh clean && \
+  ./build.sh install && \
+  cd .. && \
+  rm -rf a-json-sax-library
 
 # --- Build & install a-json-library ---
 RUN set -eux; \
   git clone --depth 1 "https://github.com/contactandyc/a-json-library.git" "a-json-library" && \
   cd a-json-library && \
+  ./build.sh clean && \
   ./build.sh install && \
   cd .. && \
   rm -rf a-json-library
