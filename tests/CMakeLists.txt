@@ -19,6 +19,8 @@ find_library(M_LIB m)
 set(TEST_EXECUTABLES "")
 add_executable(test_curl_resource  src/test_curl_resource.c)
 
+target_include_directories(test_curl_resource PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
 list(APPEND TEST_EXECUTABLES test_curl_resource)
 
 set_target_properties(test_curl_resource PROPERTIES
@@ -59,6 +61,8 @@ endif()
 
 add_test(NAME test_curl_resource COMMAND $<TARGET_FILE:test_curl_resource>)
 add_executable(test_curl_resource_async  src/test_curl_resource_async.c)
+
+target_include_directories(test_curl_resource_async PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 list(APPEND TEST_EXECUTABLES test_curl_resource_async)
 
@@ -101,6 +105,8 @@ endif()
 add_test(NAME test_curl_resource_async COMMAND $<TARGET_FILE:test_curl_resource_async>)
 add_executable(test_event_loop_cancel  src/test_event_loop_cancel.c)
 
+target_include_directories(test_event_loop_cancel PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
 list(APPEND TEST_EXECUTABLES test_event_loop_cancel)
 
 set_target_properties(test_event_loop_cancel PROPERTIES
@@ -141,6 +147,8 @@ endif()
 
 add_test(NAME test_event_loop_cancel COMMAND $<TARGET_FILE:test_event_loop_cancel>)
 add_executable(test_event_loop_priority  src/test_event_loop_priority.c)
+
+target_include_directories(test_event_loop_priority PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 list(APPEND TEST_EXECUTABLES test_event_loop_priority)
 
@@ -183,6 +191,8 @@ endif()
 add_test(NAME test_event_loop_priority COMMAND $<TARGET_FILE:test_event_loop_priority>)
 add_executable(test_rate_manager  src/test_rate_manager.c)
 
+target_include_directories(test_rate_manager PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
 list(APPEND TEST_EXECUTABLES test_rate_manager)
 
 set_target_properties(test_rate_manager PROPERTIES
@@ -223,6 +233,8 @@ endif()
 
 add_test(NAME test_rate_manager COMMAND $<TARGET_FILE:test_rate_manager>)
 add_executable(test_rate_manager_hp_429  src/test_rate_manager_hp_429.c)
+
+target_include_directories(test_rate_manager_hp_429 PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 list(APPEND TEST_EXECUTABLES test_rate_manager_hp_429)
 
@@ -265,6 +277,8 @@ endif()
 add_test(NAME test_rate_manager_hp_429 COMMAND $<TARGET_FILE:test_rate_manager_hp_429>)
 add_executable(test_request_headers  src/test_request_headers.c)
 
+target_include_directories(test_request_headers PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
 list(APPEND TEST_EXECUTABLES test_request_headers)
 
 set_target_properties(test_request_headers PROPERTIES
@@ -305,6 +319,8 @@ endif()
 
 add_test(NAME test_request_headers COMMAND $<TARGET_FILE:test_request_headers>)
 add_executable(test_request_json  src/test_request_json.c)
+
+target_include_directories(test_request_json PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 list(APPEND TEST_EXECUTABLES test_request_json)
 
@@ -347,6 +363,8 @@ endif()
 add_test(NAME test_request_json COMMAND $<TARGET_FILE:test_request_json>)
 add_executable(test_sinks  src/test_sinks.c)
 
+target_include_directories(test_sinks PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
 list(APPEND TEST_EXECUTABLES test_sinks)
 
 set_target_properties(test_sinks PROPERTIES
@@ -387,6 +405,8 @@ endif()
 
 add_test(NAME test_sinks COMMAND $<TARGET_FILE:test_sinks>)
 add_executable(test_worker_pool  src/test_worker_pool.c)
+
+target_include_directories(test_worker_pool PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 list(APPEND TEST_EXECUTABLES test_worker_pool)
 
