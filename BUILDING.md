@@ -26,7 +26,7 @@ sudo cmake --install .
 ### System packages (required)
 
 ```bash
-sudo apt-get update && sudo apt-get install -y libssl-dev libcurl4-openssl-dev zlib1g-dev build-essential
+sudo apt-get update && sudo apt-get install -y build-essential libcurl4-openssl-dev zlib1g-dev libssl-dev
 ```
 
 
@@ -34,7 +34,7 @@ sudo apt-get update && sudo apt-get install -y libssl-dev libcurl4-openssl-dev z
 ### Development tooling (optional)
 
 ```bash
-sudo apt-get update && sudo apt-get install -y valgrind gdb perl autoconf automake libtool python3 python3-venv python3-pip
+sudo apt-get update && sudo apt-get install -y python3 python3-venv python3-pip valgrind gdb perl autoconf automake libtool
 ```
 
 
@@ -161,15 +161,15 @@ RUN apt-get update && apt-get install -y \
 
 # Development tooling (optional)
 RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-venv \
+    python3-pip \
     valgrind \
     gdb \
     perl \
     autoconf \
     automake \
     libtool \
-    python3 \
-    python3-venv \
-    python3-pip \
  && rm -rf /var/lib/apt/lists/*
 
 # --- Install CMake from official binaries (arch-aware) ------------------------
