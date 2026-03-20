@@ -50,8 +50,11 @@ find_package(CURL REQUIRED)
 
 # ---- Dependencies (PkgConfig Shims) ----
 
+
 # ── Library variants (ALL are defined & built/installed) ──────────────────────
-add_library(a_curl_library_debug  src/curl_event_loop.c  src/curl_event_request.c  src/curl_resource.c  src/rate_manager.c  src/sinks/file.c  src/sinks/memory.c  src/worker_pool.c)
+
+add_library(a_curl_library_debug STATIC
+  src/curl_event_loop.c  src/curl_event_request.c  src/curl_resource.c  src/rate_manager.c  src/sinks/file.c  src/sinks/memory.c  src/worker_pool.c)
 
 target_include_directories(a_curl_library_debug PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -85,7 +88,9 @@ install(TARGETS a_curl_library_debug EXPORT a_curl_libraryTargets
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-add_library(a_curl_library_memory  src/curl_event_loop.c  src/curl_event_request.c  src/curl_resource.c  src/rate_manager.c  src/sinks/file.c  src/sinks/memory.c  src/worker_pool.c)
+
+add_library(a_curl_library_memory STATIC
+  src/curl_event_loop.c  src/curl_event_request.c  src/curl_resource.c  src/rate_manager.c  src/sinks/file.c  src/sinks/memory.c  src/worker_pool.c)
 
 target_include_directories(a_curl_library_memory PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -122,7 +127,9 @@ install(TARGETS a_curl_library_memory EXPORT a_curl_libraryTargets
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-add_library(a_curl_library_static  src/curl_event_loop.c  src/curl_event_request.c  src/curl_resource.c  src/rate_manager.c  src/sinks/file.c  src/sinks/memory.c  src/worker_pool.c)
+
+add_library(a_curl_library_static STATIC
+  src/curl_event_loop.c  src/curl_event_request.c  src/curl_resource.c  src/rate_manager.c  src/sinks/file.c  src/sinks/memory.c  src/worker_pool.c)
 
 target_include_directories(a_curl_library_static PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -156,7 +163,9 @@ install(TARGETS a_curl_library_static EXPORT a_curl_libraryTargets
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-add_library(a_curl_library_shared  src/curl_event_loop.c  src/curl_event_request.c  src/curl_resource.c  src/rate_manager.c  src/sinks/file.c  src/sinks/memory.c  src/worker_pool.c)
+
+add_library(a_curl_library_shared SHARED
+  src/curl_event_loop.c  src/curl_event_request.c  src/curl_resource.c  src/rate_manager.c  src/sinks/file.c  src/sinks/memory.c  src/worker_pool.c)
 
 target_include_directories(a_curl_library_shared PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
