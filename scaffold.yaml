@@ -1,10 +1,12 @@
 project_title: A CURL Library
 version: 0.0.1
+stack: c/cmake
+date_created: 2019-08-01
+profile: default-knode
 
-profile: andy-curtis/andy-curtis-knode
-template: cmake-c-git
-
-license_profile: andy-curtis/knode-shared
+base_templates:
+  repo: https://github.com/contactandyc/scaffold-templates.git
+  ref: main
 
 depends_on:
   - https://github.com/contactandyc/a-json-library.git
