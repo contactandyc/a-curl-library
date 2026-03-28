@@ -1,7 +1,7 @@
 # BUILDING
 
 This project: **A CURL Library**
-Version: **0.0.1**
+Version: **0.1.0**
 
 ## Local build
 
@@ -27,7 +27,7 @@ sudo cmake --install .
 ### System packages (required)
 
 ```bash
-sudo apt-get update && sudo apt-get install -y build-essential zlib1g-dev libssl-dev libcurl4-openssl-dev
+sudo apt-get update && sudo apt-get install -y libssl-dev libcurl4-openssl-dev zlib1g-dev build-essential
 ```
 
 
