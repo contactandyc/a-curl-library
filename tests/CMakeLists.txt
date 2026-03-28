@@ -17,11 +17,24 @@ option(A_ENABLE_COVERAGE "Enable code coverage instrumentation" OFF)
 
 find_library(M_LIB m)
 
-# ---- Test executables ----
-set(TEST_EXECUTABLES "")
-add_executable(test_curl_resource  src/test_curl_resource.c)
+find_package(a_json_library CONFIG REQUIRED)
+find_package(CURL REQUIRED)
 
-target_include_directories(test_curl_resource PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR}/src)
+# Fallback for standalone test builds (when not included via add_subdirectory)
+if(NOT TARGET a_curl_library::a_curl_library)
+  find_package(a_curl_library CONFIG REQUIRED)
+endif()
+
+set(TEST_EXECUTABLES "")
+
+# ---- Targets ----
+add_executable(test_curl_resource
+  src/test_curl_resource.c
+)
+
+target_include_directories(test_curl_resource PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/../src
+)
 
 list(APPEND TEST_EXECUTABLES test_curl_resource)
 
@@ -36,9 +49,8 @@ if("CXX" IN_LIST CMAKE_PROJECT_LANGUAGES)
   )
 endif()
 
-if(NOT TARGET a_curl_library::a_curl_library)
-  find_package(a_curl_library CONFIG REQUIRED)
-endif()
+target_link_libraries(test_curl_resource PRIVATE a_json_library::a_json_library)
+target_link_libraries(test_curl_resource PRIVATE CURL::libcurl)
 target_link_libraries(test_curl_resource PRIVATE a_curl_library::a_curl_library)
 
 if(M_LIB)
@@ -62,9 +74,13 @@ if(A_ENABLE_COVERAGE)
 endif()
 
 add_test(NAME test_curl_resource COMMAND $<TARGET_FILE:test_curl_resource>)
-add_executable(test_curl_resource_async  src/test_curl_resource_async.c)
+add_executable(test_curl_resource_async
+  src/test_curl_resource_async.c
+)
 
-target_include_directories(test_curl_resource_async PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(test_curl_resource_async PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/../src
+)
 
 list(APPEND TEST_EXECUTABLES test_curl_resource_async)
 
@@ -79,9 +95,8 @@ if("CXX" IN_LIST CMAKE_PROJECT_LANGUAGES)
   )
 endif()
 
-if(NOT TARGET a_curl_library::a_curl_library)
-  find_package(a_curl_library CONFIG REQUIRED)
-endif()
+target_link_libraries(test_curl_resource_async PRIVATE a_json_library::a_json_library)
+target_link_libraries(test_curl_resource_async PRIVATE CURL::libcurl)
 target_link_libraries(test_curl_resource_async PRIVATE a_curl_library::a_curl_library)
 
 if(M_LIB)
@@ -105,9 +120,13 @@ if(A_ENABLE_COVERAGE)
 endif()
 
 add_test(NAME test_curl_resource_async COMMAND $<TARGET_FILE:test_curl_resource_async>)
-add_executable(test_event_loop_cancel  src/test_event_loop_cancel.c)
+add_executable(test_event_loop_cancel
+  src/test_event_loop_cancel.c
+)
 
-target_include_directories(test_event_loop_cancel PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(test_event_loop_cancel PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/../src
+)
 
 list(APPEND TEST_EXECUTABLES test_event_loop_cancel)
 
@@ -122,9 +141,8 @@ if("CXX" IN_LIST CMAKE_PROJECT_LANGUAGES)
   )
 endif()
 
-if(NOT TARGET a_curl_library::a_curl_library)
-  find_package(a_curl_library CONFIG REQUIRED)
-endif()
+target_link_libraries(test_event_loop_cancel PRIVATE a_json_library::a_json_library)
+target_link_libraries(test_event_loop_cancel PRIVATE CURL::libcurl)
 target_link_libraries(test_event_loop_cancel PRIVATE a_curl_library::a_curl_library)
 
 if(M_LIB)
@@ -148,9 +166,13 @@ if(A_ENABLE_COVERAGE)
 endif()
 
 add_test(NAME test_event_loop_cancel COMMAND $<TARGET_FILE:test_event_loop_cancel>)
-add_executable(test_event_loop_priority  src/test_event_loop_priority.c)
+add_executable(test_event_loop_priority
+  src/test_event_loop_priority.c
+)
 
-target_include_directories(test_event_loop_priority PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(test_event_loop_priority PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/../src
+)
 
 list(APPEND TEST_EXECUTABLES test_event_loop_priority)
 
@@ -165,9 +187,8 @@ if("CXX" IN_LIST CMAKE_PROJECT_LANGUAGES)
   )
 endif()
 
-if(NOT TARGET a_curl_library::a_curl_library)
-  find_package(a_curl_library CONFIG REQUIRED)
-endif()
+target_link_libraries(test_event_loop_priority PRIVATE a_json_library::a_json_library)
+target_link_libraries(test_event_loop_priority PRIVATE CURL::libcurl)
 target_link_libraries(test_event_loop_priority PRIVATE a_curl_library::a_curl_library)
 
 if(M_LIB)
@@ -191,9 +212,13 @@ if(A_ENABLE_COVERAGE)
 endif()
 
 add_test(NAME test_event_loop_priority COMMAND $<TARGET_FILE:test_event_loop_priority>)
-add_executable(test_rate_manager  src/test_rate_manager.c)
+add_executable(test_rate_manager
+  src/test_rate_manager.c
+)
 
-target_include_directories(test_rate_manager PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(test_rate_manager PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/../src
+)
 
 list(APPEND TEST_EXECUTABLES test_rate_manager)
 
@@ -208,9 +233,8 @@ if("CXX" IN_LIST CMAKE_PROJECT_LANGUAGES)
   )
 endif()
 
-if(NOT TARGET a_curl_library::a_curl_library)
-  find_package(a_curl_library CONFIG REQUIRED)
-endif()
+target_link_libraries(test_rate_manager PRIVATE a_json_library::a_json_library)
+target_link_libraries(test_rate_manager PRIVATE CURL::libcurl)
 target_link_libraries(test_rate_manager PRIVATE a_curl_library::a_curl_library)
 
 if(M_LIB)
@@ -234,9 +258,13 @@ if(A_ENABLE_COVERAGE)
 endif()
 
 add_test(NAME test_rate_manager COMMAND $<TARGET_FILE:test_rate_manager>)
-add_executable(test_rate_manager_hp_429  src/test_rate_manager_hp_429.c)
+add_executable(test_rate_manager_hp_429
+  src/test_rate_manager_hp_429.c
+)
 
-target_include_directories(test_rate_manager_hp_429 PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(test_rate_manager_hp_429 PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/../src
+)
 
 list(APPEND TEST_EXECUTABLES test_rate_manager_hp_429)
 
@@ -251,9 +279,8 @@ if("CXX" IN_LIST CMAKE_PROJECT_LANGUAGES)
   )
 endif()
 
-if(NOT TARGET a_curl_library::a_curl_library)
-  find_package(a_curl_library CONFIG REQUIRED)
-endif()
+target_link_libraries(test_rate_manager_hp_429 PRIVATE a_json_library::a_json_library)
+target_link_libraries(test_rate_manager_hp_429 PRIVATE CURL::libcurl)
 target_link_libraries(test_rate_manager_hp_429 PRIVATE a_curl_library::a_curl_library)
 
 if(M_LIB)
@@ -277,9 +304,13 @@ if(A_ENABLE_COVERAGE)
 endif()
 
 add_test(NAME test_rate_manager_hp_429 COMMAND $<TARGET_FILE:test_rate_manager_hp_429>)
-add_executable(test_request_headers  src/test_request_headers.c)
+add_executable(test_request_headers
+  src/test_request_headers.c
+)
 
-target_include_directories(test_request_headers PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(test_request_headers PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/../src
+)
 
 list(APPEND TEST_EXECUTABLES test_request_headers)
 
@@ -294,9 +325,8 @@ if("CXX" IN_LIST CMAKE_PROJECT_LANGUAGES)
   )
 endif()
 
-if(NOT TARGET a_curl_library::a_curl_library)
-  find_package(a_curl_library CONFIG REQUIRED)
-endif()
+target_link_libraries(test_request_headers PRIVATE a_json_library::a_json_library)
+target_link_libraries(test_request_headers PRIVATE CURL::libcurl)
 target_link_libraries(test_request_headers PRIVATE a_curl_library::a_curl_library)
 
 if(M_LIB)
@@ -320,9 +350,13 @@ if(A_ENABLE_COVERAGE)
 endif()
 
 add_test(NAME test_request_headers COMMAND $<TARGET_FILE:test_request_headers>)
-add_executable(test_request_json  src/test_request_json.c)
+add_executable(test_request_json
+  src/test_request_json.c
+)
 
-target_include_directories(test_request_json PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(test_request_json PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/../src
+)
 
 list(APPEND TEST_EXECUTABLES test_request_json)
 
@@ -337,9 +371,8 @@ if("CXX" IN_LIST CMAKE_PROJECT_LANGUAGES)
   )
 endif()
 
-if(NOT TARGET a_curl_library::a_curl_library)
-  find_package(a_curl_library CONFIG REQUIRED)
-endif()
+target_link_libraries(test_request_json PRIVATE a_json_library::a_json_library)
+target_link_libraries(test_request_json PRIVATE CURL::libcurl)
 target_link_libraries(test_request_json PRIVATE a_curl_library::a_curl_library)
 
 if(M_LIB)
@@ -363,9 +396,13 @@ if(A_ENABLE_COVERAGE)
 endif()
 
 add_test(NAME test_request_json COMMAND $<TARGET_FILE:test_request_json>)
-add_executable(test_sinks  src/test_sinks.c)
+add_executable(test_sinks
+  src/test_sinks.c
+)
 
-target_include_directories(test_sinks PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(test_sinks PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/../src
+)
 
 list(APPEND TEST_EXECUTABLES test_sinks)
 
@@ -380,9 +417,8 @@ if("CXX" IN_LIST CMAKE_PROJECT_LANGUAGES)
   )
 endif()
 
-if(NOT TARGET a_curl_library::a_curl_library)
-  find_package(a_curl_library CONFIG REQUIRED)
-endif()
+target_link_libraries(test_sinks PRIVATE a_json_library::a_json_library)
+target_link_libraries(test_sinks PRIVATE CURL::libcurl)
 target_link_libraries(test_sinks PRIVATE a_curl_library::a_curl_library)
 
 if(M_LIB)
@@ -406,9 +442,13 @@ if(A_ENABLE_COVERAGE)
 endif()
 
 add_test(NAME test_sinks COMMAND $<TARGET_FILE:test_sinks>)
-add_executable(test_worker_pool  src/test_worker_pool.c)
+add_executable(test_worker_pool
+  src/test_worker_pool.c
+)
 
-target_include_directories(test_worker_pool PRIVATE  ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_include_directories(test_worker_pool PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/../src
+)
 
 list(APPEND TEST_EXECUTABLES test_worker_pool)
 
@@ -423,9 +463,8 @@ if("CXX" IN_LIST CMAKE_PROJECT_LANGUAGES)
   )
 endif()
 
-if(NOT TARGET a_curl_library::a_curl_library)
-  find_package(a_curl_library CONFIG REQUIRED)
-endif()
+target_link_libraries(test_worker_pool PRIVATE a_json_library::a_json_library)
+target_link_libraries(test_worker_pool PRIVATE CURL::libcurl)
 target_link_libraries(test_worker_pool PRIVATE a_curl_library::a_curl_library)
 
 if(M_LIB)
