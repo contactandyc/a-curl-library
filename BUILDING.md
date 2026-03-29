@@ -27,7 +27,7 @@ sudo cmake --install .
 ### System packages (required)
 
 ```bash
-sudo apt-get update && sudo apt-get install -y libssl-dev libcurl4-openssl-dev zlib1g-dev build-essential
+sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev build-essential zlib1g-dev libssl-dev
 ```
 
 
