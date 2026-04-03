@@ -1,7 +1,7 @@
 # BUILDING
 
 This project: **A CURL Library**
-Version: **0.1.0**
+Version: **0.1.1**
 
 ## Local build
 
@@ -27,7 +27,7 @@ sudo cmake --install .
 ### System packages (required)
 
 ```bash
-sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev build-essential zlib1g-dev libssl-dev
+sudo apt-get update && sudo apt-get install -y build-essential libcurl4-openssl-dev libssl-dev zlib1g-dev
 ```
 
 
@@ -35,23 +35,9 @@ sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev build-essent
 ### Development tooling (optional)
 
 ```bash
-sudo apt-get update && sudo apt-get install -y valgrind gdb perl autoconf automake libtool
+sudo apt-get update && sudo apt-get install -y autoconf automake gdb libtool perl python3 python3-pip python3-venv valgrind
 ```
 
-
-
-### a-memory-library
-
-Clone & build:
-
-```bash
-git clone --depth 1 --single-branch "https://github.com/contactandyc/a-memory-library.git" "a-memory-library"
-cd "a-memory-library"
-./build.sh clean
-./build.sh install
-cd ..
-rm -rf "a-memory-library"
-```
 
 
 ### OpenSSL
@@ -74,6 +60,20 @@ cd "the-macro-library"
 ./build.sh install
 cd ..
 rm -rf "the-macro-library"
+```
+
+
+### a-memory-library
+
+Clone & build:
+
+```bash
+git clone --depth 1 --single-branch "https://github.com/contactandyc/a-memory-library.git" "a-memory-library"
+cd "a-memory-library"
+./build.sh clean
+./build.sh install
+cd ..
+rm -rf "a-memory-library"
 ```
 
 
