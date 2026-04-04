@@ -41,13 +41,9 @@ list(APPEND TEST_EXECUTABLES test_curl_resource)
 set_target_properties(test_curl_resource PROPERTIES
   C_STANDARD 23
   C_STANDARD_REQUIRED YES
+  CXX_STANDARD 17
+  CXX_STANDARD_REQUIRED YES
 )
-if("CXX" IN_LIST CMAKE_PROJECT_LANGUAGES)
-  set_target_properties(test_curl_resource PROPERTIES
-    CXX_STANDARD 17
-    CXX_STANDARD_REQUIRED YES
-  )
-endif()
 
 target_link_libraries(test_curl_resource PRIVATE a_json_library::a_json_library)
 target_link_libraries(test_curl_resource PRIVATE CURL::libcurl)
@@ -87,13 +83,9 @@ list(APPEND TEST_EXECUTABLES test_curl_resource_async)
 set_target_properties(test_curl_resource_async PROPERTIES
   C_STANDARD 23
   C_STANDARD_REQUIRED YES
+  CXX_STANDARD 17
+  CXX_STANDARD_REQUIRED YES
 )
-if("CXX" IN_LIST CMAKE_PROJECT_LANGUAGES)
-  set_target_properties(test_curl_resource_async PROPERTIES
-    CXX_STANDARD 17
-    CXX_STANDARD_REQUIRED YES
-  )
-endif()
 
 target_link_libraries(test_curl_resource_async PRIVATE a_json_library::a_json_library)
 target_link_libraries(test_curl_resource_async PRIVATE CURL::libcurl)
@@ -133,13 +125,9 @@ list(APPEND TEST_EXECUTABLES test_event_loop_cancel)
 set_target_properties(test_event_loop_cancel PROPERTIES
   C_STANDARD 23
   C_STANDARD_REQUIRED YES
+  CXX_STANDARD 17
+  CXX_STANDARD_REQUIRED YES
 )
-if("CXX" IN_LIST CMAKE_PROJECT_LANGUAGES)
-  set_target_properties(test_event_loop_cancel PROPERTIES
-    CXX_STANDARD 17
-    CXX_STANDARD_REQUIRED YES
-  )
-endif()
 
 target_link_libraries(test_event_loop_cancel PRIVATE a_json_library::a_json_library)
 target_link_libraries(test_event_loop_cancel PRIVATE CURL::libcurl)
@@ -179,13 +167,9 @@ list(APPEND TEST_EXECUTABLES test_event_loop_priority)
 set_target_properties(test_event_loop_priority PROPERTIES
   C_STANDARD 23
   C_STANDARD_REQUIRED YES
+  CXX_STANDARD 17
+  CXX_STANDARD_REQUIRED YES
 )
-if("CXX" IN_LIST CMAKE_PROJECT_LANGUAGES)
-  set_target_properties(test_event_loop_priority PROPERTIES
-    CXX_STANDARD 17
-    CXX_STANDARD_REQUIRED YES
-  )
-endif()
 
 target_link_libraries(test_event_loop_priority PRIVATE a_json_library::a_json_library)
 target_link_libraries(test_event_loop_priority PRIVATE CURL::libcurl)
@@ -225,13 +209,9 @@ list(APPEND TEST_EXECUTABLES test_rate_manager)
 set_target_properties(test_rate_manager PROPERTIES
   C_STANDARD 23
   C_STANDARD_REQUIRED YES
+  CXX_STANDARD 17
+  CXX_STANDARD_REQUIRED YES
 )
-if("CXX" IN_LIST CMAKE_PROJECT_LANGUAGES)
-  set_target_properties(test_rate_manager PROPERTIES
-    CXX_STANDARD 17
-    CXX_STANDARD_REQUIRED YES
-  )
-endif()
 
 target_link_libraries(test_rate_manager PRIVATE a_json_library::a_json_library)
 target_link_libraries(test_rate_manager PRIVATE CURL::libcurl)
@@ -271,13 +251,9 @@ list(APPEND TEST_EXECUTABLES test_rate_manager_hp_429)
 set_target_properties(test_rate_manager_hp_429 PROPERTIES
   C_STANDARD 23
   C_STANDARD_REQUIRED YES
+  CXX_STANDARD 17
+  CXX_STANDARD_REQUIRED YES
 )
-if("CXX" IN_LIST CMAKE_PROJECT_LANGUAGES)
-  set_target_properties(test_rate_manager_hp_429 PROPERTIES
-    CXX_STANDARD 17
-    CXX_STANDARD_REQUIRED YES
-  )
-endif()
 
 target_link_libraries(test_rate_manager_hp_429 PRIVATE a_json_library::a_json_library)
 target_link_libraries(test_rate_manager_hp_429 PRIVATE CURL::libcurl)
@@ -317,13 +293,9 @@ list(APPEND TEST_EXECUTABLES test_request_headers)
 set_target_properties(test_request_headers PROPERTIES
   C_STANDARD 23
   C_STANDARD_REQUIRED YES
+  CXX_STANDARD 17
+  CXX_STANDARD_REQUIRED YES
 )
-if("CXX" IN_LIST CMAKE_PROJECT_LANGUAGES)
-  set_target_properties(test_request_headers PROPERTIES
-    CXX_STANDARD 17
-    CXX_STANDARD_REQUIRED YES
-  )
-endif()
 
 target_link_libraries(test_request_headers PRIVATE a_json_library::a_json_library)
 target_link_libraries(test_request_headers PRIVATE CURL::libcurl)
@@ -363,13 +335,9 @@ list(APPEND TEST_EXECUTABLES test_request_json)
 set_target_properties(test_request_json PROPERTIES
   C_STANDARD 23
   C_STANDARD_REQUIRED YES
+  CXX_STANDARD 17
+  CXX_STANDARD_REQUIRED YES
 )
-if("CXX" IN_LIST CMAKE_PROJECT_LANGUAGES)
-  set_target_properties(test_request_json PROPERTIES
-    CXX_STANDARD 17
-    CXX_STANDARD_REQUIRED YES
-  )
-endif()
 
 target_link_libraries(test_request_json PRIVATE a_json_library::a_json_library)
 target_link_libraries(test_request_json PRIVATE CURL::libcurl)
@@ -409,13 +377,9 @@ list(APPEND TEST_EXECUTABLES test_sinks)
 set_target_properties(test_sinks PROPERTIES
   C_STANDARD 23
   C_STANDARD_REQUIRED YES
+  CXX_STANDARD 17
+  CXX_STANDARD_REQUIRED YES
 )
-if("CXX" IN_LIST CMAKE_PROJECT_LANGUAGES)
-  set_target_properties(test_sinks PROPERTIES
-    CXX_STANDARD 17
-    CXX_STANDARD_REQUIRED YES
-  )
-endif()
 
 target_link_libraries(test_sinks PRIVATE a_json_library::a_json_library)
 target_link_libraries(test_sinks PRIVATE CURL::libcurl)
@@ -455,13 +419,9 @@ list(APPEND TEST_EXECUTABLES test_worker_pool)
 set_target_properties(test_worker_pool PROPERTIES
   C_STANDARD 23
   C_STANDARD_REQUIRED YES
+  CXX_STANDARD 17
+  CXX_STANDARD_REQUIRED YES
 )
-if("CXX" IN_LIST CMAKE_PROJECT_LANGUAGES)
-  set_target_properties(test_worker_pool PROPERTIES
-    CXX_STANDARD 17
-    CXX_STANDARD_REQUIRED YES
-  )
-endif()
 
 target_link_libraries(test_worker_pool PRIVATE a_json_library::a_json_library)
 target_link_libraries(test_worker_pool PRIVATE CURL::libcurl)
