@@ -58,6 +58,7 @@ typedef struct curl_event_request_s {
     struct curl_res_dep_s *dep_head; /* built via curl_event_request_depend() */
     char   *rate_limit;            /* token bucket key (dup into pool)      */
     bool    rate_limit_high_priority;
+    double rate_limit_weight;
 
     /*— timeouts / speed (seconds) —*/
     long connect_timeout;
@@ -215,6 +216,9 @@ void curl_event_request_depend_many(curl_event_request_t *req,
 /* Rate limiting */
 void curl_event_request_rate_limit(curl_event_request_t *req,
                                    const char *key, bool high_priority);
+
+void curl_event_request_weighted_rate_limit(curl_event_request_t *req, const char *key, bool high_priority, double weight);
+
 
 /* Timeouts / speed (seconds) */
 void curl_event_request_connect_timeout(curl_event_request_t *req, long secs);
