@@ -22,25 +22,25 @@ MACRO_TEST(rate_manager_basic_bucket) {
     // 1 rps to get a predictable wait, concurrency isn't enforced in this impl
     rate_manager_set_limit("key1", /*max_concurrent*/1, /*max_rps*/1.0);
 
-    // First start should proceed immediately.
-    uint64_t w1 = rate_manager_start_request("key1", false);
+    // First start should proceed immediately. (Weight = 1.0)
+    uint64_t w1 = rate_manager_start_request("key1", false, 1.0);
     MACRO_ASSERT_EQ_INT((int)(w1 == 0), 1);
 
     // Immediately starting again should be throttled (need ~1s for new token).
-    uint64_t w2 = rate_manager_start_request("key1", false);
+    uint64_t w2 = rate_manager_start_request("key1", false, 1.0);
     MACRO_ASSERT_TRUE(w2 > 0);
 
-    // Mark one request done so concurrent counter goes down (even if not used here).
+    // Mark one request done so concurrent counter goes down.
     rate_manager_request_done("key1");
 
     // Wait until can proceed returns 0, then start.
     for (;;) {
-        uint64_t wait_ns = rate_manager_can_proceed("key1", false);
-        if (wait_ns == 0) break;
-        sleep_ns(wait_ns);
+        uint64_t wait_ms = rate_manager_can_proceed("key1", false, 1.0);
+        if (wait_ms == 0) break;
+        sleep_ns(wait_ms * 1000000ULL); // Convert ms to ns for the sleep helper
     }
 
-    uint64_t w3 = rate_manager_start_request("key1", false);
+    uint64_t w3 = rate_manager_start_request("key1", false, 1.0);
     MACRO_ASSERT_EQ_INT((int)(w3 == 0), 1);
     rate_manager_request_done("key1");
 

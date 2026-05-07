@@ -36,7 +36,6 @@ curl_event_loop_t *curl_event_loop_init(curl_event_on_loop_t on_loop, void *arg)
         return NULL;
     }
 
-    // The user can toggle HTTP/3 support if their libcurl has it
     loop->enable_http3 = true;
 
     loop->queued_requests = NULL;
@@ -58,25 +57,19 @@ curl_event_loop_t *curl_event_loop_init(curl_event_on_loop_t on_loop, void *arg)
     loop->metrics.failed_requests = 0;
     loop->metrics.retried_requests = 0;
 
-    // Default to a high concurrency.
     loop->max_concurrent_requests = 1000;
-
     loop->keep_running = true;
     pthread_mutex_init(&loop->mutex, NULL);
 
     return loop;
 }
 
-// curl_event_loop_inject lets you post a “synthetic completion” into the loop
 void curl_event_loop_inject(curl_event_loop_t *loop, curl_event_request_t *req_pub) {
     if (!loop || !req_pub) return;
 
     curl_event_loop_request_t *injected_req =
         (curl_event_loop_request_t *)aml_calloc(1, sizeof(curl_event_loop_request_t));
-    if (!injected_req) {
-        fprintf(stderr, "[curl_event_loop_inject] Memory allocation failed.\n");
-        return;
-    }
+    if (!injected_req) return;
 
     injected_req->request = *req_pub;
     injected_req->is_injected = true;
@@ -94,14 +87,12 @@ void curl_event_loop_inject(curl_event_loop_t *loop, curl_event_request_t *req_p
 
 bool curl_event_loop_cancel(curl_event_loop_t *loop, curl_event_request_t *r) {
     if (!loop || !r) return false;
-
     curl_event_loop_request_t *req = curl_wrap_from_public(r);
 
     pthread_mutex_lock(&loop->mutex);
-
     if (req->next_cancelled) {
         pthread_mutex_unlock(&loop->mutex);
-        return false; // Already canceled
+        return false;
     }
 
     req->is_cancelled = true;
@@ -149,7 +140,6 @@ void curl_event_loop_destroy(curl_event_loop_t *loop) {
     }
 
     pthread_mutex_lock(&loop->mutex);
-
     curl_event_loop_request_t *req = loop->cancelled_requests;
     while (req) {
         curl_event_loop_request_t *next = req->next_cancelled;
@@ -173,7 +163,6 @@ void curl_event_loop_destroy(curl_event_loop_t *loop) {
         req = next;
     }
     loop->injected_requests = NULL;
-
     pthread_mutex_unlock(&loop->mutex);
 
     curl_multi_cleanup(loop->multi_handle);
@@ -184,11 +173,9 @@ void curl_event_loop_destroy(curl_event_loop_t *loop) {
 }
 
 static bool request_is_rate_limited(curl_event_loop_t *loop, macro_map_t **root, curl_event_loop_request_t *req) {
-    if (!req->request.rate_limit)
-        return false;
-    uint64_t next = rate_manager_can_proceed(req->request.rate_limit, req->request.rate_limit_high_priority);
-    if (next == 0)
-        return false;
+    if (!req->request.rate_limit) return false;
+    uint64_t next = rate_manager_can_proceed(req->request.rate_limit, req->request.rate_limit_high_priority, req->request.rate_limit_weight);
+    if (next == 0) return false;
 
     macro_map_erase(root, &req->node);
     req->request.next_retry_at = macro_now() + next;
@@ -196,26 +183,20 @@ static bool request_is_rate_limited(curl_event_loop_t *loop, macro_map_t **root,
     return true;
 }
 
-static bool request_waiting_on_dependencies(curl_event_loop_t *loop,
-                                            curl_event_loop_request_t *req)
-{
+static bool request_waiting_on_dependencies(curl_event_loop_t *loop, curl_event_loop_request_t *req) {
     if (!req->request.dep_head) return false;
     return curl_resource_check_and_block_list(loop, req, req->request.dep_head);
 }
 
 static bool request_ready(curl_event_loop_t *loop, const curl_event_loop_request_t *req) {
-    if (loop->num_queued_requests >= loop->max_concurrent_requests) {
-        return false;
-    }
+    if (loop->num_queued_requests >= loop->max_concurrent_requests) return false;
     if (req->request.rate_limit) {
-        if (rate_manager_can_proceed(req->request.rate_limit, req->request.rate_limit_high_priority) > 0) {
+        if (rate_manager_can_proceed(req->request.rate_limit, req->request.rate_limit_high_priority, req->request.rate_limit_weight) > 0) {
             return false;
         }
     }
     if (req->request.dep_head) {
-        if (!curl_resource_all_ready_list(loop, req->request.dep_head)) {
-            return false;
-        }
+        if (!curl_resource_all_ready_list(loop, req->request.dep_head)) return false;
     }
     return macro_now() >= req->request.next_retry_at;
 }
@@ -241,7 +222,6 @@ void process_cancelled_and_pending_requests(curl_event_loop_t *loop) {
 
     while (cancelled) {
         curl_event_loop_request_t *next = cancelled->next_cancelled;
-
         if (cancelled->multi_handle) {
             macro_map_erase(&loop->queued_requests, (macro_map_t *)cancelled);
             loop->num_queued_requests--;
@@ -269,7 +249,6 @@ void process_cancelled_and_pending_requests(curl_event_loop_t *loop) {
                 curl_resource_retain_request_deps(loop, &pending->request);
                 pending->deps_retained = true;
             }
-
             if (!request_waiting_on_dependencies(loop, pending)) {
                 if (request_ready(loop, pending)) {
                     curl_event_loop_request_start(pending);
@@ -284,7 +263,6 @@ void process_cancelled_and_pending_requests(curl_event_loop_t *loop) {
 
 static long calculate_next_timer_expiry(curl_event_loop_t *loop, long max_value) {
     uint64_t current_time, next_time;
-
     macro_map_t *first_inactive_node = macro_map_first(loop->inactive_requests);
     macro_map_t *first_refresh_node = macro_map_first(loop->refresh_requests);
     if (!first_inactive_node && !first_refresh_node) {
@@ -308,9 +286,7 @@ static long calculate_next_timer_expiry(curl_event_loop_t *loop, long max_value)
         }
     }
     current_time = macro_now();
-    if (next_time < current_time) {
-        return 0;
-    }
+    if (next_time < current_time) return 0;
     next_time = next_time - current_time;
     next_time /= 1000000L;
     return next_time > max_value ? max_value : next_time;
@@ -321,14 +297,12 @@ static void move_inactive_requests_to_queue(curl_event_loop_t *loop) {
     macro_map_t *root = loop->rate_limited_requests;
     loop->rate_limited_requests = NULL;
     uint64_t now = macro_now();
+
     n = macro_map_first(root);
     while (n) {
-        if (now < ((curl_event_loop_request_t *)n)->request.next_retry_at)
-            break;
+        if (now < ((curl_event_loop_request_t *)n)->request.next_retry_at) break;
         if (!request_is_rate_limited(loop, &root, (curl_event_loop_request_t *)n)) {
-            if (!request_ready(loop, (curl_event_loop_request_t *)n)) {
-                break;
-            }
+            if (!request_ready(loop, (curl_event_loop_request_t *)n)) break;
             curl_event_loop_request_t *req = (curl_event_loop_request_t *)n;
             macro_map_erase(&root, n);
             curl_event_loop_request_start(req);
@@ -346,30 +320,24 @@ static void move_inactive_requests_to_queue(curl_event_loop_t *loop) {
     n = macro_map_first(loop->refresh_requests);
     while (n) {
         if (!request_is_rate_limited(loop, &loop->refresh_requests, (curl_event_loop_request_t *)n)) {
-            if (!request_ready(loop, (curl_event_loop_request_t *)n)) {
-                break;
-            }
+            if (!request_ready(loop, (curl_event_loop_request_t *)n)) break;
             curl_event_loop_request_t *req = (curl_event_loop_request_t *)n;
             macro_map_erase(&loop->refresh_requests, n);
             loop->num_refresh_requests--;
             curl_event_loop_request_start(req);
-        } else
-            loop->num_refresh_requests--;
+        } else loop->num_refresh_requests--;
         n = macro_map_first(loop->refresh_requests);
     }
 
     n = macro_map_first(loop->inactive_requests);
     while (n) {
         if (!request_is_rate_limited(loop, &loop->inactive_requests, (curl_event_loop_request_t *)n)) {
-            if (!request_ready(loop, (curl_event_loop_request_t *)n)) {
-                break;
-            }
+            if (!request_ready(loop, (curl_event_loop_request_t *)n)) break;
             curl_event_loop_request_t *req = (curl_event_loop_request_t *)n;
             macro_map_erase(&loop->inactive_requests, n);
             loop->num_inactive_requests--;
             curl_event_loop_request_start(req);
-        } else
-            loop->num_inactive_requests--;
+        } else loop->num_inactive_requests--;
         n = macro_map_first(loop->inactive_requests);
     }
 }
@@ -390,25 +358,38 @@ static void process_completed_requests(curl_event_loop_t *loop) {
             macro_map_erase(&loop->queued_requests, (macro_map_t *)req);
             loop->num_queued_requests--;
 
-            bool success = (result == CURLE_OK && http_code == 200);
-            int retry_in;
-            if (success) {
-                retry_in = req->request.on_complete(easy, &req->request);
-            } else {
-                retry_in = -1;
-                if (req->request.on_failure)
-                    retry_in = req->request.on_failure(easy, result, http_code, &req->request);
-            }
+            if ((http_code == 429 || http_code == 403) && req->request.rate_limit) {
+                int retry_in_sec = rate_manager_handle_429(req->request.rate_limit);
 
-            if (http_code == 429 && req->request.rate_limit) {
-                retry_in = rate_manager_handle_429(req->request.rate_limit);
-                req->request.next_retry_at = macro_now_add_seconds(retry_in);
+                // Add random jitter (0 to 1000ms) converted to nanoseconds
+                uint64_t jitter_ns = (rand() % 1000) * 1000000ULL;
+                req->request.next_retry_at = macro_now_add_seconds(retry_in_sec) + jitter_ns;
+
+                // Calculate the exact total milliseconds for the log
+                uint64_t total_wait_ms = (retry_in_sec * 1000ULL) + (jitter_ns / 1000000ULL);
+
+                fprintf(stderr, "[Rate Manager] %s hit HTTP %ld. Bucket Paused. Req retrying in %llums...\n",
+                        req->request.rate_limit, http_code, total_wait_ms);
+
+                curl_event_loop_request_cleanup(req);
                 curl_event_request_insert(&loop->rate_limited_requests, req);
                 continue;
             }
 
             if (req->request.rate_limit) {
                 rate_manager_request_done(req->request.rate_limit);
+            }
+
+            // Consider standard 2xx codes as success
+            bool success = (result == CURLE_OK && http_code >= 200 && http_code < 300);
+            int retry_in;
+
+            if (success) {
+                retry_in = req->request.on_complete(easy, &req->request);
+            } else {
+                retry_in = -1;
+                if (req->request.on_failure)
+                    retry_in = req->request.on_failure(easy, result, http_code, &req->request);
             }
 
             if (retry_in > 0) {
@@ -479,7 +460,6 @@ void curl_event_loop_run(curl_event_loop_t *loop) {
             break;
         }
 
-        // Combine custom timers with libcurl's required timers
         long wait_timeout_ms = calculate_next_timer_expiry(loop, 200);
         long curl_timeout = -1;
         curl_multi_timeout(loop->multi_handle, &curl_timeout);
@@ -516,7 +496,7 @@ bool curl_event_loop_submit(curl_event_loop_t *loop,
                             curl_event_request_t *req_pub,
                             int priority)
 {
-    if (!loop || !req_pub) {
+    if (!loop || !req_pub || !req_pub->url) {
         fprintf(stderr, "[curl_event_loop_submit] Invalid arguments.\n");
         return false;
     }

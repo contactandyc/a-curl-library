@@ -174,6 +174,7 @@ curl_event_request_t *curl_event_request_init(size_t pool_size) {
     req->dep_head              = NULL;
     req->rate_limit            = NULL;
     req->rate_limit_high_priority = false;
+    req->rate_limit_weight     = 1.0; // Default weight
 
     req->connect_timeout       = 0;
     req->transfer_timeout      = 0;
@@ -384,6 +385,8 @@ void curl_event_loop_request_cleanup(curl_event_loop_request_t *req) {
     req->content_length_found = false;
     req->content_length       = -1;
     req->bytes_downloaded     = 0;
+
+    req->request.sink_initialized = false;
 }
 
 void curl_event_request_destroy(curl_event_loop_request_t *req) {
@@ -550,10 +553,11 @@ bool curl_event_loop_request_start(curl_event_loop_request_t *req) {
     curl_event_loop_t *loop = req->request.loop;
 
     if (req->request.rate_limit) {
-        uint64_t next = rate_manager_start_request(
-            req->request.rate_limit, req->request.rate_limit_high_priority);
-        if (next) {
-            req->request.next_retry_at = next;
+        uint64_t next_ms = rate_manager_start_request(
+            req->request.rate_limit, req->request.rate_limit_high_priority,
+            req->request.rate_limit_weight);
+        if (next_ms) {
+            req->request.next_retry_at = macro_now() + (next_ms * 1000000ULL);
             curl_event_request_insert(&loop->rate_limited_requests, req);
             return false;
         }
@@ -716,10 +720,18 @@ void curl_event_request_set_headerf(curl_event_request_t *req,
     curl_event_request_set_header(req, name, val);
 }
 
-void curl_event_request_rate_limit(curl_event_request_t *req,
-                                   const char *key, bool high_priority) {
+void curl_event_request_weighted_rate_limit(curl_event_request_t *req,
+                                            const char *key, bool high_priority,
+                                            double weight) {
+    if (!req) return;
     req->rate_limit = aml_pool_strdup(req->pool, key);
     req->rate_limit_high_priority = high_priority;
+    req->rate_limit_weight = weight;
+}
+
+void curl_event_request_rate_limit(curl_event_request_t *req,
+                                   const char *key, bool high_priority) {
+    curl_event_request_weighted_rate_limit(req, key, high_priority, 1.0);
 }
 
 void curl_event_request_connect_timeout(curl_event_request_t *req, long secs) {
