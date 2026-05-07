@@ -15,7 +15,6 @@
 #include <pthread.h>
 #include <string.h>
 #include <math.h>
-#include <unistd.h>
 
 typedef struct {
     macro_map_t node;
@@ -28,23 +27,19 @@ typedef struct {
     uint64_t last_refill;
     uint64_t last_success;
     int backoff_seconds;
+    uint64_t pause_until;
 } rate_limit_t;
 
-static inline
-int compare_rate_limit(const rate_limit_t *a, const rate_limit_t *b) {
+static inline int compare_rate_limit(const rate_limit_t *a, const rate_limit_t *b) {
     return strcmp(a->key, b->key);
 }
 
-static inline
-int compare_rate_limit_string(const char *a, const rate_limit_t *b) {
+static inline int compare_rate_limit_string(const char *a, const rate_limit_t *b) {
     return strcmp(a, b->key);
 }
 
-static inline
-macro_map_insert(rate_limit_insert, rate_limit_t, compare_rate_limit);
-
-static inline
-macro_map_find_kv(rate_limit_find, char, rate_limit_t, compare_rate_limit_string);
+static inline macro_map_insert(rate_limit_insert, rate_limit_t, compare_rate_limit);
+static inline macro_map_find_kv(rate_limit_find, char, rate_limit_t, compare_rate_limit_string);
 
 typedef struct {
     pthread_mutex_t mutex;
@@ -54,18 +49,14 @@ typedef struct {
 static rate_manager_t *g_rate_manager = NULL;
 
 void rate_manager_init(void) {
-    if(g_rate_manager)
-        return;
-
+    if(g_rate_manager) return;
     g_rate_manager = (rate_manager_t *)aml_calloc(1, sizeof(rate_manager_t));
     pthread_mutex_init(&g_rate_manager->mutex, NULL);
     g_rate_manager->limits = NULL;
 }
 
 void rate_manager_set_limit(const char *key, int max_concurrent, double max_rps) {
-    if(!g_rate_manager)
-        rate_manager_init();
-
+    if(!g_rate_manager) rate_manager_init();
     pthread_mutex_lock(&g_rate_manager->mutex);
 
     rate_limit_t *limit = rate_limit_find(g_rate_manager->limits, key);
@@ -81,131 +72,155 @@ void rate_manager_set_limit(const char *key, int max_concurrent, double max_rps)
     limit->last_refill = macro_now();
     limit->last_success = macro_now();
     limit->backoff_seconds = 1;
+    limit->pause_until = 0;
 
     pthread_mutex_unlock(&g_rate_manager->mutex);
 }
 
-uint64_t rate_manager_can_proceed(const char *key, bool high_priority) {
-    if (!g_rate_manager)
-        return 0;
+static inline uint64_t macro_now_ms() {
+    return macro_now() / 1000000ULL;
+}
 
+uint64_t rate_manager_can_proceed(const char *key, bool high_priority, double weight) {
+    if (!g_rate_manager) return 0;
     pthread_mutex_lock(&g_rate_manager->mutex);
+
     rate_limit_t *limit = rate_limit_find(g_rate_manager->limits, key);
     if (!limit) {
         pthread_mutex_unlock(&g_rate_manager->mutex);
-        return 0; // No rate limit exists, proceed immediately
+        return 0;
     }
 
-    uint64_t now = macro_now();
-    double elapsed = macro_time_diff(now, limit->last_refill);
+    if (limit->max_concurrent > 0 && limit->current_requests >= limit->max_concurrent) {
+        pthread_mutex_unlock(&g_rate_manager->mutex);
+        return 50;
+    }
 
-    // Refill shared token bucket
+    uint64_t now_ms = macro_now_ms();
+    if (now_ms < limit->pause_until) {
+        pthread_mutex_unlock(&g_rate_manager->mutex);
+        return limit->pause_until - now_ms;
+    }
+
+    uint64_t now_ns = macro_now();
+    double elapsed = macro_time_diff(now_ns, limit->last_refill);
     limit->tokens = fmin(limit->max_rps, limit->tokens + elapsed * limit->max_rps);
-    limit->last_refill = now;
+    limit->last_refill = now_ns;
 
-    // If a high-priority request is waiting, it gets first access
     if (high_priority) {
-        if (limit->tokens >= 1) {
+        if (limit->tokens >= weight) {
             pthread_mutex_unlock(&g_rate_manager->mutex);
-            return 0; // Can proceed immediately
+            return 0;
         }
-        // Not enough tokens, but should take precedence when available
         limit->high_priority_requests++;
-        double wait_time_ns = (1.0 - limit->tokens) / limit->max_rps * 1e9;
+        double wait_time_ms = (weight - limit->tokens) / limit->max_rps * 1000.0;
         pthread_mutex_unlock(&g_rate_manager->mutex);
-        return (uint64_t)wait_time_ns;
+        return (uint64_t)ceil(wait_time_ms);
     }
 
-    // Normal requests are blocked if there are pending high-priority requests
-    if (limit->tokens >= 1 && limit->high_priority_requests == 0) {
+    if (limit->tokens >= weight && limit->high_priority_requests == 0) {
         pthread_mutex_unlock(&g_rate_manager->mutex);
-        return 0; // Normal request can proceed immediately
+        return 0;
     }
 
-    // Normal requests must wait if high-priority requests are pending
-    double wait_time_ns = (1.0 - limit->tokens) / limit->max_rps * 1e9;
+    double wait_time_ms = (weight - limit->tokens) / limit->max_rps * 1000.0;
     pthread_mutex_unlock(&g_rate_manager->mutex);
-    return (uint64_t)wait_time_ns;
+    return (uint64_t)ceil(wait_time_ms);
 }
 
-uint64_t rate_manager_start_request(const char *key, bool high_priority) {
-    if (!g_rate_manager)
-        return 0;
-
+uint64_t rate_manager_start_request(const char *key, bool high_priority, double weight) {
+    if (!g_rate_manager) return 0;
     pthread_mutex_lock(&g_rate_manager->mutex);
+
     rate_limit_t *limit = rate_limit_find(g_rate_manager->limits, key);
     if (!limit) {
         pthread_mutex_unlock(&g_rate_manager->mutex);
-        return 0; // No rate limit exists, proceed immediately
+        return 0;
     }
 
-    uint64_t now = macro_now();
-    double elapsed = macro_time_diff(now, limit->last_refill);
+    if (limit->max_concurrent > 0 && limit->current_requests >= limit->max_concurrent) {
+        pthread_mutex_unlock(&g_rate_manager->mutex);
+        return 50;
+    }
 
-    // Refill shared token bucket
+    uint64_t now_ms = macro_now_ms();
+    if (now_ms < limit->pause_until) {
+        pthread_mutex_unlock(&g_rate_manager->mutex);
+        return limit->pause_until - now_ms;
+    }
+
+    if (limit->max_rps > 0) {
+        uint64_t min_spacing_ms = (uint64_t)((weight / limit->max_rps) * 1000.0);
+        uint64_t time_since_last_fire_ms = now_ms - (limit->last_success / 1000000ULL);
+        if (time_since_last_fire_ms < min_spacing_ms) {
+            pthread_mutex_unlock(&g_rate_manager->mutex);
+            return min_spacing_ms - time_since_last_fire_ms;
+        }
+    }
+
+    uint64_t now_ns = macro_now();
+    double elapsed = macro_time_diff(now_ns, limit->last_refill);
     limit->tokens = fmin(limit->max_rps, limit->tokens + elapsed * limit->max_rps);
-    limit->last_refill = now;
+    limit->last_refill = now_ns;
 
-    // Ensure high-priority requests get served first
-    if (high_priority || (limit->high_priority_requests == 0 && limit->tokens >= 1)) {
-        if (limit->tokens >= 1) {
-            limit->tokens -= 1.0;
+    if (high_priority || (limit->high_priority_requests == 0 && limit->tokens >= weight)) {
+        if (limit->tokens >= weight) {
+            limit->tokens -= weight;
             limit->current_requests++;
+            limit->last_success = now_ns;
             if (high_priority && limit->high_priority_requests > 0) {
-                limit->high_priority_requests--; // Reduce pending high-priority count
+                limit->high_priority_requests--;
             }
             pthread_mutex_unlock(&g_rate_manager->mutex);
-            return 0; // Request can proceed immediately
+            return 0;
         }
     }
 
-    // Otherwise, wait for next available token
-    double wait_time_ns = (1.0 - limit->tokens) / limit->max_rps * 1e9;
+    double wait_time_ms = (weight - limit->tokens) / limit->max_rps * 1000.0;
     pthread_mutex_unlock(&g_rate_manager->mutex);
-    return (uint64_t)wait_time_ns;
+    return (uint64_t)ceil(wait_time_ms);
 }
 
 void rate_manager_request_done(const char *key) {
-    if(!g_rate_manager)
-        return;
-
+    if(!g_rate_manager) return;
     pthread_mutex_lock(&g_rate_manager->mutex);
+
     rate_limit_t *limit = rate_limit_find(g_rate_manager->limits, key);
     if (limit) {
-        if (limit->current_requests > 0) {
-            limit->current_requests--;
-        }
-        limit->last_success = macro_now();
-        limit->backoff_seconds = 1;  // Reset backoff on success
+        if (limit->current_requests > 0) limit->current_requests--;
+        limit->backoff_seconds = 1;
     }
     pthread_mutex_unlock(&g_rate_manager->mutex);
 }
 
 int rate_manager_handle_429(const char *key) {
-    if(!g_rate_manager)
-        return 0;
-
+    if(!g_rate_manager) return 0;
     pthread_mutex_lock(&g_rate_manager->mutex);
+
     rate_limit_t *limit = rate_limit_find(g_rate_manager->limits, key);
     if (!limit) {
         pthread_mutex_unlock(&g_rate_manager->mutex);
         return 0;
     }
 
-    // Decrement current request count since the request finished (but was rate limited)
-    if (limit->current_requests > 0) {
-        limit->current_requests--;
+    if (limit->current_requests > 0) limit->current_requests--;
+
+    uint64_t now_ms = macro_now_ms();
+
+    if (now_ms < limit->pause_until) {
+        pthread_mutex_unlock(&g_rate_manager->mutex);
+        return limit->backoff_seconds;
     }
 
-    uint64_t now = macro_now();
-    double time_since_last_success = macro_time_diff(now, limit->last_success);
+    double time_since_last_success = macro_time_diff(macro_now(), limit->last_success);
 
-    // Adjust backoff behavior for rate-limited responses
-    if (time_since_last_success < 2) {
-        limit->backoff_seconds = 1;  // Reset backoff if a recent success was seen
+    if (time_since_last_success < 2.0) {
+        limit->backoff_seconds = 1;
     } else {
         limit->backoff_seconds = fmin(limit->backoff_seconds * 2, 60);
     }
+
+    limit->pause_until = now_ms + ((uint64_t)limit->backoff_seconds * 1000ULL);
 
     pthread_mutex_unlock(&g_rate_manager->mutex);
     return limit->backoff_seconds;
@@ -213,10 +228,8 @@ int rate_manager_handle_429(const char *key) {
 
 void rate_manager_destroy(void) {
     if (!g_rate_manager) return;
-
     pthread_mutex_lock(&g_rate_manager->mutex);
 
-    // Iterate over the rate limits map and free each entry
     macro_map_t *node = macro_map_first(g_rate_manager->limits);
     while (node) {
         rate_limit_t *limit = (rate_limit_t *)node;

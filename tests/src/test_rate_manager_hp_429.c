@@ -20,25 +20,25 @@ MACRO_TEST(rate_manager_high_priority_preempts_normal) {
     rate_manager_set_limit("hp", /*max_concurrent*/1, /*max_rps*/0.5); // tokens start at 0.5
 
     // HP request waiting: increments internal hp counter, returns wait
-    uint64_t whp = rate_manager_can_proceed("hp", true);
+    uint64_t whp = rate_manager_can_proceed("hp", true, 1.0);
     MACRO_ASSERT_TRUE(whp > 0);
 
     // Normal should now wait while HP is pending
-    uint64_t wn = rate_manager_can_proceed("hp", false);
+    uint64_t wn = rate_manager_can_proceed("hp", false, 1.0);
     MACRO_ASSERT_TRUE(wn > 0);
 
     // Eventually HP should be able to start; spin until token refills
-    uint64_t wstart = rate_manager_start_request("hp", true);
-    while (wstart > 0) {
+    uint64_t wstart_ms = rate_manager_start_request("hp", true, 1.0);
+    while (wstart_ms > 0) {
         // Wait the suggested amount before retrying
-        sleep_ns(wstart);
-        wstart = rate_manager_start_request("hp", true);
+        sleep_ns(wstart_ms * 1000000ULL);
+        wstart_ms = rate_manager_start_request("hp", true, 1.0);
     }
 
     rate_manager_request_done("hp");
 
     // After serving HP, normal can proceed (no pending HP)
-    uint64_t wn2 = rate_manager_can_proceed("hp", false);
+    uint64_t wn2 = rate_manager_can_proceed("hp", false, 1.0);
     MACRO_ASSERT_EQ_INT((int)(wn2 == 0), 1);
 
     rate_manager_destroy();

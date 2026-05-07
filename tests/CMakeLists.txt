@@ -9,6 +9,11 @@ cmake_minimum_required(VERSION 3.20)
 
 project(a_curl_library_tests LANGUAGES C)
 
+if(CMAKE_PREFIX_PATH)
+  include_directories("${CMAKE_PREFIX_PATH}/include")
+  link_directories("${CMAKE_PREFIX_PATH}/lib")
+endif()
+
 set(A_BUILD_VARIANT "debug" CACHE STRING
     "Variant to link via a_curl_library::a_curl_library (debug|memory|static|shared)")
 set_property(CACHE A_BUILD_VARIANT PROPERTY STRINGS debug memory static shared)
@@ -28,12 +33,23 @@ endif()
 set(TEST_EXECUTABLES "")
 
 # ---- Targets ----
+# ==============================================================================
+# test_curl_resource Target (Standard Test)
+# ==============================================================================
 add_executable(test_curl_resource
   src/test_curl_resource.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_event_loop.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_event_request.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_resource.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/rate_manager.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/sinks/file.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/sinks/memory.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/worker_pool.c
 )
 
 target_include_directories(test_curl_resource PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/../src
+  ${CMAKE_CURRENT_SOURCE_DIR}/../include
 )
 
 list(APPEND TEST_EXECUTABLES test_curl_resource)
@@ -70,12 +86,23 @@ if(A_ENABLE_COVERAGE)
 endif()
 
 add_test(NAME test_curl_resource COMMAND $<TARGET_FILE:test_curl_resource>)
+# ==============================================================================
+# test_curl_resource_async Target (Standard Test)
+# ==============================================================================
 add_executable(test_curl_resource_async
   src/test_curl_resource_async.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_event_loop.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_event_request.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_resource.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/rate_manager.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/sinks/file.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/sinks/memory.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/worker_pool.c
 )
 
 target_include_directories(test_curl_resource_async PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/../src
+  ${CMAKE_CURRENT_SOURCE_DIR}/../include
 )
 
 list(APPEND TEST_EXECUTABLES test_curl_resource_async)
@@ -112,12 +139,23 @@ if(A_ENABLE_COVERAGE)
 endif()
 
 add_test(NAME test_curl_resource_async COMMAND $<TARGET_FILE:test_curl_resource_async>)
+# ==============================================================================
+# test_event_loop_cancel Target (Standard Test)
+# ==============================================================================
 add_executable(test_event_loop_cancel
   src/test_event_loop_cancel.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_event_loop.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_event_request.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_resource.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/rate_manager.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/sinks/file.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/sinks/memory.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/worker_pool.c
 )
 
 target_include_directories(test_event_loop_cancel PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/../src
+  ${CMAKE_CURRENT_SOURCE_DIR}/../include
 )
 
 list(APPEND TEST_EXECUTABLES test_event_loop_cancel)
@@ -154,12 +192,23 @@ if(A_ENABLE_COVERAGE)
 endif()
 
 add_test(NAME test_event_loop_cancel COMMAND $<TARGET_FILE:test_event_loop_cancel>)
+# ==============================================================================
+# test_event_loop_priority Target (Standard Test)
+# ==============================================================================
 add_executable(test_event_loop_priority
   src/test_event_loop_priority.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_event_loop.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_event_request.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_resource.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/rate_manager.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/sinks/file.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/sinks/memory.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/worker_pool.c
 )
 
 target_include_directories(test_event_loop_priority PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/../src
+  ${CMAKE_CURRENT_SOURCE_DIR}/../include
 )
 
 list(APPEND TEST_EXECUTABLES test_event_loop_priority)
@@ -196,12 +245,23 @@ if(A_ENABLE_COVERAGE)
 endif()
 
 add_test(NAME test_event_loop_priority COMMAND $<TARGET_FILE:test_event_loop_priority>)
+# ==============================================================================
+# test_rate_manager Target (Standard Test)
+# ==============================================================================
 add_executable(test_rate_manager
   src/test_rate_manager.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_event_loop.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_event_request.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_resource.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/rate_manager.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/sinks/file.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/sinks/memory.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/worker_pool.c
 )
 
 target_include_directories(test_rate_manager PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/../src
+  ${CMAKE_CURRENT_SOURCE_DIR}/../include
 )
 
 list(APPEND TEST_EXECUTABLES test_rate_manager)
@@ -238,12 +298,23 @@ if(A_ENABLE_COVERAGE)
 endif()
 
 add_test(NAME test_rate_manager COMMAND $<TARGET_FILE:test_rate_manager>)
+# ==============================================================================
+# test_rate_manager_hp_429 Target (Standard Test)
+# ==============================================================================
 add_executable(test_rate_manager_hp_429
   src/test_rate_manager_hp_429.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_event_loop.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_event_request.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_resource.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/rate_manager.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/sinks/file.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/sinks/memory.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/worker_pool.c
 )
 
 target_include_directories(test_rate_manager_hp_429 PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/../src
+  ${CMAKE_CURRENT_SOURCE_DIR}/../include
 )
 
 list(APPEND TEST_EXECUTABLES test_rate_manager_hp_429)
@@ -280,12 +351,23 @@ if(A_ENABLE_COVERAGE)
 endif()
 
 add_test(NAME test_rate_manager_hp_429 COMMAND $<TARGET_FILE:test_rate_manager_hp_429>)
+# ==============================================================================
+# test_request_headers Target (Standard Test)
+# ==============================================================================
 add_executable(test_request_headers
   src/test_request_headers.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_event_loop.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_event_request.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_resource.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/rate_manager.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/sinks/file.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/sinks/memory.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/worker_pool.c
 )
 
 target_include_directories(test_request_headers PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/../src
+  ${CMAKE_CURRENT_SOURCE_DIR}/../include
 )
 
 list(APPEND TEST_EXECUTABLES test_request_headers)
@@ -322,12 +404,23 @@ if(A_ENABLE_COVERAGE)
 endif()
 
 add_test(NAME test_request_headers COMMAND $<TARGET_FILE:test_request_headers>)
+# ==============================================================================
+# test_request_json Target (Standard Test)
+# ==============================================================================
 add_executable(test_request_json
   src/test_request_json.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_event_loop.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_event_request.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_resource.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/rate_manager.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/sinks/file.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/sinks/memory.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/worker_pool.c
 )
 
 target_include_directories(test_request_json PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/../src
+  ${CMAKE_CURRENT_SOURCE_DIR}/../include
 )
 
 list(APPEND TEST_EXECUTABLES test_request_json)
@@ -364,12 +457,23 @@ if(A_ENABLE_COVERAGE)
 endif()
 
 add_test(NAME test_request_json COMMAND $<TARGET_FILE:test_request_json>)
+# ==============================================================================
+# test_sinks Target (Standard Test)
+# ==============================================================================
 add_executable(test_sinks
   src/test_sinks.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_event_loop.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_event_request.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_resource.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/rate_manager.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/sinks/file.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/sinks/memory.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/worker_pool.c
 )
 
 target_include_directories(test_sinks PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/../src
+  ${CMAKE_CURRENT_SOURCE_DIR}/../include
 )
 
 list(APPEND TEST_EXECUTABLES test_sinks)
@@ -406,12 +510,23 @@ if(A_ENABLE_COVERAGE)
 endif()
 
 add_test(NAME test_sinks COMMAND $<TARGET_FILE:test_sinks>)
+# ==============================================================================
+# test_worker_pool Target (Standard Test)
+# ==============================================================================
 add_executable(test_worker_pool
   src/test_worker_pool.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_event_loop.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_event_request.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/curl_resource.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/rate_manager.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/sinks/file.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/sinks/memory.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/../src/worker_pool.c
 )
 
 target_include_directories(test_worker_pool PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/../src
+  ${CMAKE_CURRENT_SOURCE_DIR}/../include
 )
 
 list(APPEND TEST_EXECUTABLES test_worker_pool)
