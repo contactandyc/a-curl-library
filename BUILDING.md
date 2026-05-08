@@ -1,7 +1,7 @@
 # BUILDING
 
 This project: **A CURL Library**
-Version: **0.1.9**
+Version: **0.1.10**
 
 ## Local build
 
