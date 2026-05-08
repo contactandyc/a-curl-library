@@ -38,8 +38,8 @@ static inline int compare_rate_limit_string(const char *a, const rate_limit_t *b
     return strcmp(a, b->key);
 }
 
-static inline macro_map_insert(rate_limit_insert, rate_limit_t, compare_rate_limit);
-static inline macro_map_find_kv(rate_limit_find, char, rate_limit_t, compare_rate_limit_string);
+static inline macro_map_insert(rate_limit_insert, rate_limit_t, compare_rate_limit)
+static inline macro_map_find_kv(rate_limit_find, char, rate_limit_t, compare_rate_limit_string)
 
 typedef struct {
     pthread_mutex_t mutex;

@@ -189,7 +189,7 @@ static bool request_waiting_on_dependencies(curl_event_loop_t *loop, curl_event_
 }
 
 static bool request_ready(curl_event_loop_t *loop, const curl_event_loop_request_t *req) {
-    if (loop->num_queued_requests >= loop->max_concurrent_requests) return false;
+    if ((size_t)loop->num_queued_requests >= loop->max_concurrent_requests) return false;
     if (req->request.rate_limit) {
         if (rate_manager_can_proceed(req->request.rate_limit, req->request.rate_limit_high_priority, req->request.rate_limit_weight) > 0) {
             return false;
@@ -289,7 +289,7 @@ static long calculate_next_timer_expiry(curl_event_loop_t *loop, long max_value)
     if (next_time < current_time) return 0;
     next_time = next_time - current_time;
     next_time /= 1000000L;
-    return next_time > max_value ? max_value : next_time;
+    return next_time > (uint64_t)max_value ? max_value : (long)next_time;
 }
 
 static void move_inactive_requests_to_queue(curl_event_loop_t *loop) {

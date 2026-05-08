@@ -51,9 +51,9 @@ static inline int compare_res_id(const curl_event_res_id *key,
 }
 
 static inline
-macro_map_insert(res_insert, curl_event_res_t, compare_res);
+macro_map_insert(res_insert, curl_event_res_t, compare_res)
 static inline
-macro_map_find_kv(res_find, curl_event_res_id, curl_event_res_t, compare_res_id);
+macro_map_find_kv(res_find, curl_event_res_id, curl_event_res_t, compare_res_id)
 
 /* ──────────────────────────────────────────────────────────────────────
    Loop‑thread assertions & helpers
