@@ -438,46 +438,35 @@ bool curl_resource_all_ready_list(struct curl_event_loop_s    *loop,
     return true;
 }
 
+// --- FIX: Safely pop resources to avoid map iteration corruption ---
 void curl_resource_destroy_all(struct curl_event_loop_s *loop)
 {
     if (!loop) return;
 
-    /* Walk and drain the entire resource map. We repeatedly fetch first
-       because macro_map_erase() invalidates the node we’re iterating. */
-    for (macro_map_t *n = macro_map_first(loop->resources);
-         n != NULL;
-         n = macro_map_first(loop->resources))
-    {
-        curl_event_res_t *res = (curl_event_res_t *)n;
+    while (loop->resources) {
+        macro_map_t *node = macro_map_first(loop->resources);
+        curl_event_res_t *res = (curl_event_res_t *)node;
 
-        /* Detach any blocked list (no need to hold the loop mutex here as
-           we’re on the loop thread during teardown and no one else is
-           mutating the resources structure anymore). */
+        /* Unlink first so nested request destroys don't corrupt the map iterator */
+        macro_map_erase(&loop->resources, node);
+
         curl_event_loop_request_t *head = res->blocked_head;
         res->blocked_head = res->blocked_tail = NULL;
 
-        /* Fail/cancel all blocked requests cleanly. */
         while (head) {
             curl_event_loop_request_t *next = head->next_pending;
             head->next_pending = NULL;
 
             if (head->request.on_failure) {
-                head->request.on_failure(
-                    NULL, CURLE_ABORTED_BY_CALLBACK, 0, &head->request);
+                head->request.on_failure(NULL, CURLE_ABORTED_BY_CALLBACK, 0, &head->request);
             }
             curl_event_request_destroy(head);
             head = next;
         }
 
-        /* Cleanup payload if present */
         if (res->cleanup && res->payload)
             res->cleanup(res->payload);
 
-        /* Unlink and free the resource node */
-        macro_map_erase(&loop->resources, n);
         aml_free(res);
     }
-
-    /* After this point there are no resources left. */
-    loop->resources = NULL;
 }

@@ -354,15 +354,18 @@ curl_event_request_submit(curl_event_loop_t *loop,
 
     int pri = (priority != 0) ? priority : req_pub->priority;
     if (pri != 0) {
-        uint64_t adj = (uint64_t)((int64_t)pri > 0 ? (int64_t)pri : 0) * 1000000000ull;
-        if (adj < req_pub->next_retry_at) req_pub->next_retry_at -= adj;
+        // Negative priority gracefully pushes next_retry_at into the future
+        req_pub->next_retry_at -= ((int64_t)pri * 1000000000LL);
     }
+
+    wrap->is_foreground = !req_pub->should_refresh; // <--- NEW
 
     pthread_mutex_lock(&loop->mutex);
     wrap->is_pending    = true;
     wrap->next_pending  = loop->pending_requests;
     loop->pending_requests = wrap;
     loop->metrics.total_requests++;
+    if (wrap->is_foreground) loop->num_foreground_requests++; // <--- NEW
     pthread_mutex_unlock(&loop->mutex);
 
     return req_pub;
@@ -391,6 +394,15 @@ void curl_event_loop_request_cleanup(curl_event_loop_request_t *req) {
 
 void curl_event_request_destroy(curl_event_loop_request_t *req) {
     if (!req) return;
+
+    // --- NEW: Safe cross-thread decrement ---
+    if (req->is_foreground && req->request.loop) {
+        pthread_mutex_lock(&req->request.loop->mutex);
+        req->request.loop->num_foreground_requests--;
+        pthread_mutex_unlock(&req->request.loop->mutex);
+        req->is_foreground = false;
+    }
+    // ----------------------------------------
 
     curl_event_loop_request_cleanup(req);
 

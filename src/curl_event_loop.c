@@ -452,13 +452,15 @@ void curl_event_loop_run(curl_event_loop_t *loop) {
         process_completed_requests(loop);
         curl_resource_inbox_drain(loop);
 
-        if (still_running == 0 &&
-            loop->pending_requests == NULL &&
-            macro_map_first(loop->queued_requests) == NULL &&
-            macro_map_first(loop->refresh_requests) == NULL &&
-            macro_map_first(loop->inactive_requests) == NULL) {
-            break;
+        // --- NEW: Magic graceful exit ---
+        pthread_mutex_lock(&loop->mutex);
+        int fg = loop->num_foreground_requests;
+        pthread_mutex_unlock(&loop->mutex);
+
+        if (fg == 0) {
+            break; // No active foreground tasks. Safe to exit!
         }
+        // --------------------------------
 
         long wait_timeout_ms = calculate_next_timer_expiry(loop, 200);
         long curl_timeout = -1;
@@ -491,7 +493,6 @@ curl_event_metrics_t curl_event_loop_get_metrics(const curl_event_loop_t *loop) 
     }
     return loop->metrics;
 }
-
 bool curl_event_loop_submit(curl_event_loop_t *loop,
                             curl_event_request_t *req_pub,
                             int priority)
@@ -509,11 +510,14 @@ bool curl_event_loop_submit(curl_event_loop_t *loop,
     req->request.start_time = req->request.next_retry_at;
     req->request.request_start_time = req->request.next_retry_at;
 
+    req->is_foreground = !req_pub->should_refresh; // <--- NEW
+
     pthread_mutex_lock(&loop->mutex);
     req->is_pending = true;
     req->next_pending = loop->pending_requests;
     loop->pending_requests = req;
     loop->metrics.total_requests++;
+    if (req->is_foreground) loop->num_foreground_requests++; // <--- NEW
     pthread_mutex_unlock(&loop->mutex);
 
     return true;

@@ -58,6 +58,7 @@ struct curl_event_loop_request_s {
     bool  is_cancelled;
     bool  is_pending;
     bool  deps_retained;
+    bool  is_foreground;            /* <--- NEW: true if not auto-refreshing */
     long  bytes_downloaded;
 };
 
@@ -122,6 +123,7 @@ struct curl_event_loop_s {
     int  num_multi_requests;
     int  num_inactive_requests;
     int  num_refresh_requests;
+    int  num_foreground_requests;        /* <--- NEW: Tracks non-refresh requests */
 
     /* statistics */
     curl_event_metrics_t metrics;
